@@ -1,0 +1,77 @@
+.contacts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-6);
+}
+
+.contacts__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+}
+
+.contacts__title {
+  font-size: var(--font-size-page-title);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.contacts__description {
+  margin-top: var(--spacing-2);
+  color: var(--color-text-secondary);
+}
+
+.contacts__table-container {
+  overflow-x: auto;
+  background-color: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.contacts__table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
+.contacts__table th,
+.contacts__table td {
+  padding: var(--spacing-4);
+  text-align: left;
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.contacts__table th {
+  font-size: var(--font-size-small);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background-color: var(--color-background-secondary);
+}
+
+.contacts__table td {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+}
+
+.contacts__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.contacts__table tbody tr:hover {
+  background-color: var(--color-background-secondary);
+}
+
+.contacts__empty,
+.contacts__error {
+  padding: var(--spacing-6);
+  background-color: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--border-radius-md);
+  color: var(--color-text-secondary);
+}
+
+.contacts__error {
+  color: var(--color-error);
+}

@@ -1,0 +1,331 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  nombre      String   @unique
+  descripcion String?
+
+  users       User[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id                   Int                   @id @default(autoincrement())
+
+  nombre               String
+  apellido             String
+
+  correo               String                @unique
+  password             String
+
+  activo               Boolean               @default(true)
+
+  roleId               Int
+  role                 Role                  @relation(fields: [roleId], references: [id])
+
+  contacts             Contact[]
+  leads                Lead[]
+  opportunities        Opportunity[]
+  activities           Activity[]
+  notifications        Notification[]
+  tasks                Task[]
+  companies            Company[]
+  files                File[]
+  automations          Automation[]
+  automationActions    AutomationAction[]
+  automationExecutions AutomationExecution[]
+
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+}
+
+model Contact {
+  id        Int      @id @default(autoincrement())
+
+  nombre    String
+  apellido  String?
+  correo    String?
+  telefono  String?
+  puesto    String?
+
+  activo    Boolean  @default(true)
+
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+
+  companyId Int?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  leads     Lead[]
+  files     File[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Company {
+  id          Int       @id @default(autoincrement())
+
+  nombre      String
+
+  razonSocial String?
+
+  rfc         String?
+
+  industria   String?
+
+  sitioWeb    String?
+
+  telefono    String?
+
+  direccion   String?
+
+  activo      Boolean   @default(true)
+
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id])
+
+  contacts    Contact[]
+  files       File[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Lead {
+  id                   Int                   @id @default(autoincrement())
+
+  titulo               String
+  descripcion          String?
+
+  estado               String                @default("Nuevo")
+  origen               String?
+  prioridad            String                @default("Media")
+
+  valorEstimado        Decimal?              @db.Decimal(12, 2)
+
+  fechaSeguimiento     DateTime?
+
+  activo               Boolean               @default(true)
+
+  contactId            Int
+  contact              Contact               @relation(fields: [contactId], references: [id])
+
+  userId               Int
+  user                 User                  @relation(fields: [userId], references: [id])
+
+  opportunities        Opportunity[]
+  files                File[]
+  automationExecutions AutomationExecution[]
+
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+}
+
+model Opportunity {
+  id          Int        @id @default(autoincrement())
+
+  nombre      String
+  descripcion String?
+
+  etapa       String     @default("Prospección")
+
+  monto       Decimal?   @db.Decimal(12, 2)
+
+  fechaCierre DateTime?
+
+  activo      Boolean    @default(true)
+
+  leadId      Int
+  lead        Lead       @relation(fields: [leadId], references: [id])
+
+  userId      Int
+  user        User       @relation(fields: [userId], references: [id])
+
+  activities  Activity[]
+  files       File[]
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Activity {
+  id             Int         @id @default(autoincrement())
+
+  tipo           String
+
+  asunto         String
+
+  descripcion    String?
+
+  fechaActividad DateTime
+
+  estado         String      @default("Pendiente")
+
+  activo         Boolean     @default(true)
+
+  opportunityId  Int
+  opportunity    Opportunity @relation(fields: [opportunityId], references: [id])
+
+  userId         Int
+  user           User        @relation(fields: [userId], references: [id])
+
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+
+  titulo    String
+  mensaje   String
+
+  tipo      String
+
+  leida     Boolean  @default(false)
+
+  activo    Boolean  @default(true)
+
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Task {
+  id          Int       @id @default(autoincrement())
+
+  titulo      String
+  descripcion String?
+
+  prioridad   String    @default("Media")
+
+  estado      String    @default("Pendiente")
+
+  fechaLimite DateTime?
+
+  activo      Boolean   @default(true)
+
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model File {
+  id             Int          @id @default(autoincrement())
+
+  nombre         String
+
+  nombreOriginal String
+
+  ruta           String
+
+  tipoMime       String
+
+  extension      String
+
+  tamano         Int
+
+  activo         Boolean      @default(true)
+
+  userId         Int
+  user           User         @relation(fields: [userId], references: [id])
+
+  companyId      Int?
+  company        Company?     @relation(fields: [companyId], references: [id])
+
+  contactId      Int?
+  contact        Contact?     @relation(fields: [contactId], references: [id])
+
+  leadId         Int?
+  lead           Lead?        @relation(fields: [leadId], references: [id])
+
+  opportunityId  Int?
+  opportunity    Opportunity? @relation(fields: [opportunityId], references: [id])
+
+  createdAt      DateTime     @default(now())
+
+  updatedAt      DateTime     @updatedAt
+}
+
+model Automation {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  descripcion String?
+
+  evento      String
+  activa      Boolean  @default(false)
+
+  acciones    AutomationAction[]
+  ejecuciones AutomationExecution[]
+
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([evento, activa])
+}
+
+model AutomationAction {
+  id              Int        @id @default(autoincrement())
+
+  tipo            String
+  configuracion   Json
+
+  orden           Int        @default(1)
+  activa          Boolean    @default(true)
+
+  automationId    Int
+  automation      Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  userId          Int
+  user            User       @relation(fields: [userId], references: [id])
+
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([automationId, orden])
+}
+
+
+model AutomationExecution {
+  id              Int      @id @default(autoincrement())
+  claveEvento     String
+
+  estado          String   @default("Pendiente")
+  resultado       String?
+  mensajeError    String?
+
+  fechaEvento     DateTime
+  fechaEjecucion  DateTime?
+
+  automationId   Int
+  automation     Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  leadId          Int
+  lead            Lead       @relation(fields: [leadId], references: [id])
+
+  userId          Int
+  user            User       @relation(fields: [userId], references: [id])
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([automationId, claveEvento])
+  @@index([estado, fechaEvento])
+  @@index([automationId, leadId, fechaEvento])
+}
