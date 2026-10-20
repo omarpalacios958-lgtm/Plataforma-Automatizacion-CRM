@@ -244,7 +244,16 @@ class AutomationExecutionService {
                 });
 
                 if (
-                    resultadoCorreo.rechazados &&
+                    !Array.isArray(resultadoCorreo.aceptados) ||
+                    resultadoCorreo.aceptados.length === 0
+                ) {
+                    throw new Error(
+                        "El servidor SMTP no confirmó ningún destinatario aceptado."
+                    );
+                }
+
+                if (
+                    Array.isArray(resultadoCorreo.rechazados) &&
                     resultadoCorreo.rechazados.length > 0
                 ) {
                     throw new Error(
@@ -284,4 +293,6 @@ class AutomationExecutionService {
     }
 }
 
-module.exports = new AutomationExecutionService();
+const automationExecutionService = new AutomationExecutionService();
+
+module.exports = automationExecutionService;

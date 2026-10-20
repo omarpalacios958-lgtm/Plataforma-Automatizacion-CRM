@@ -523,3 +523,299 @@ test(
         }
     }
 );
+
+test(
+    "Falla el correo cuando SMTP no confirma destinatarios aceptados",
+    async () => {
+        const originales = {
+            obtenerActivasPorEvento:
+                automationRepository.obtenerActivasPorEvento,
+            crearEjecucion:
+                automationRepository.crearEjecucion,
+            actualizarEjecucion:
+                automationRepository.actualizarEjecucion,
+            enviarCorreo: emailService.enviar,
+        };
+
+        const actualizaciones = [];
+
+        try {
+            automationRepository.obtenerActivasPorEvento =
+                async () => [
+                    {
+                        id: 21,
+                        acciones: [
+                            {
+                                id: 201,
+                                tipo: "ENVIAR_CORREO",
+                                configuracion: {
+                                    destinatario: "prueba@example.com",
+                                    asunto: "Prueba SMTP",
+                                    mensaje: "Mensaje de prueba",
+                                },
+                            },
+                        ],
+                    },
+                ];
+
+            automationRepository.crearEjecucion =
+                async (datos) => ({
+                    id: 9101,
+                    ...datos,
+                });
+
+            automationRepository.actualizarEjecucion =
+                async (id, datos) => {
+                    actualizaciones.push({ id, ...datos });
+                };
+
+            emailService.enviar = async () => ({
+                messageId: "simulado",
+                aceptados: [],
+                rechazados: [],
+            });
+
+            const resultado =
+                await automationExecutionService.procesarEvento({
+                    evento: "LEAD_CREADO",
+                    leadId: 999,
+                    userId: 1,
+                });
+
+            assert.equal(resultado.total, 1);
+            assert.equal(
+                resultado.resultados[0].estado,
+                "Fallida"
+            );
+
+            const actualizacionFinal =
+                actualizaciones.find(
+                    (actualizacion) =>
+                        actualizacion.estado === "Fallida"
+                );
+
+            assert.ok(actualizacionFinal);
+
+            const historial = JSON.parse(
+                actualizacionFinal.resultado
+            );
+
+            assert.equal(
+                historial.acciones[0].estado,
+                "Fallida"
+            );
+
+            assert.equal(
+                historial.acciones[0].error,
+                "El servidor SMTP no confirmó ningún destinatario aceptado."
+            );
+        } finally {
+            automationRepository.obtenerActivasPorEvento =
+                originales.obtenerActivasPorEvento;
+            automationRepository.crearEjecucion =
+                originales.crearEjecucion;
+            automationRepository.actualizarEjecucion =
+                originales.actualizarEjecucion;
+            emailService.enviar = originales.enviarCorreo;
+        }
+    }
+);
+
+test(
+    "Falla el correo cuando SMTP informa destinatarios rechazados",
+    async () => {
+        const originales = {
+            obtenerActivasPorEvento:
+                automationRepository.obtenerActivasPorEvento,
+            crearEjecucion:
+                automationRepository.crearEjecucion,
+            actualizarEjecucion:
+                automationRepository.actualizarEjecucion,
+            enviarCorreo: emailService.enviar,
+        };
+
+        const actualizaciones = [];
+
+        try {
+            automationRepository.obtenerActivasPorEvento =
+                async () => [
+                    {
+                        id: 22,
+                        acciones: [
+                            {
+                                id: 202,
+                                tipo: "ENVIAR_CORREO",
+                                configuracion: {
+                                    destinatario: "prueba@example.com",
+                                    asunto: "Prueba SMTP",
+                                    mensaje: "Mensaje de prueba",
+                                },
+                            },
+                        ],
+                    },
+                ];
+
+            automationRepository.crearEjecucion =
+                async (datos) => ({
+                    id: 9102,
+                    ...datos,
+                });
+
+            automationRepository.actualizarEjecucion =
+                async (id, datos) => {
+                    actualizaciones.push({ id, ...datos });
+                };
+
+            emailService.enviar = async () => ({
+                messageId: "simulado",
+                aceptados: ["otro@example.com"],
+                rechazados: ["prueba@example.com"],
+            });
+
+            const resultado =
+                await automationExecutionService.procesarEvento({
+                    evento: "LEAD_CREADO",
+                    leadId: 999,
+                    userId: 1,
+                });
+
+            assert.equal(resultado.total, 1);
+            assert.equal(
+                resultado.resultados[0].estado,
+                "Fallida"
+            );
+
+            const actualizacionFinal =
+                actualizaciones.find(
+                    (actualizacion) =>
+                        actualizacion.estado === "Fallida"
+                );
+
+            assert.ok(actualizacionFinal);
+
+            const historial = JSON.parse(
+                actualizacionFinal.resultado
+            );
+
+            assert.equal(
+                historial.acciones[0].estado,
+                "Fallida"
+            );
+
+            assert.equal(
+                historial.acciones[0].error,
+                "El servidor SMTP rechazó al destinatario."
+            );
+        } finally {
+            automationRepository.obtenerActivasPorEvento =
+                originales.obtenerActivasPorEvento;
+            automationRepository.crearEjecucion =
+                originales.crearEjecucion;
+            automationRepository.actualizarEjecucion =
+                originales.actualizarEjecucion;
+            emailService.enviar = originales.enviarCorreo;
+        }
+    }
+);
+
+test(
+    "Completa el correo cuando SMTP confirma un destinatario aceptado",
+    async () => {
+        const originales = {
+            obtenerActivasPorEvento:
+                automationRepository.obtenerActivasPorEvento,
+            crearEjecucion:
+                automationRepository.crearEjecucion,
+            actualizarEjecucion:
+                automationRepository.actualizarEjecucion,
+            enviarCorreo: emailService.enviar,
+        };
+
+        const actualizaciones = [];
+
+        try {
+            automationRepository.obtenerActivasPorEvento =
+                async () => [
+                    {
+                        id: 23,
+                        acciones: [
+                            {
+                                id: 203,
+                                tipo: "ENVIAR_CORREO",
+                                configuracion: {
+                                    destinatario: "prueba@example.com",
+                                    asunto: "Prueba SMTP",
+                                    mensaje: "Mensaje de prueba",
+                                },
+                            },
+                        ],
+                    },
+                ];
+
+            automationRepository.crearEjecucion =
+                async (datos) => ({
+                    id: 9103,
+                    ...datos,
+                });
+
+            automationRepository.actualizarEjecucion =
+                async (id, datos) => {
+                    actualizaciones.push({ id, ...datos });
+                };
+
+            emailService.enviar = async () => ({
+                messageId: "simulado",
+                aceptados: ["prueba@example.com"],
+                rechazados: [],
+            });
+
+            const resultado =
+                await automationExecutionService.procesarEvento({
+                    evento: "LEAD_CREADO",
+                    leadId: 999,
+                    userId: 1,
+                });
+
+            assert.equal(resultado.total, 1);
+            assert.equal(
+                resultado.resultados[0].estado,
+                "Completada"
+            );
+
+            const actualizacionFinal =
+                actualizaciones.find(
+                    (actualizacion) =>
+                        actualizacion.estado === "Completada"
+                );
+
+            assert.ok(actualizacionFinal);
+
+            const historial = JSON.parse(
+                actualizacionFinal.resultado
+            );
+
+            assert.equal(
+                historial.acciones[0].estado,
+                "Completada"
+            );
+
+            assert.equal(
+                historial.acciones[0].resultado.messageId,
+                "simulado"
+            );
+
+            assert.deepEqual(
+                historial.acciones[0].resultado.aceptados,
+                ["prueba@example.com"]
+            );
+        } finally {
+            automationRepository.obtenerActivasPorEvento =
+                originales.obtenerActivasPorEvento;
+            automationRepository.crearEjecucion =
+                originales.crearEjecucion;
+            automationRepository.actualizarEjecucion =
+                originales.actualizarEjecucion;
+            emailService.enviar = originales.enviarCorreo;
+        }
+    }
+);
