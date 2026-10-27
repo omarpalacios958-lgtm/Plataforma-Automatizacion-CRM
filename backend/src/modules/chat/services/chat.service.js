@@ -1,5 +1,5 @@
 const chatRepository = require('../repositories/chat.repository');
-const { validarId, validarDestinatario, validarEnvio, validarPaginacion } = require('../validations/chat.validation');
+const { validarId, validarDestinatario, validarEnvio, validarPaginacion, validarGrupo } = require('../validations/chat.validation');
 
 function httpError(status, message) {
   const error = new Error(message);
@@ -45,6 +45,29 @@ class ChatService {
       }
       throw error;
     }
+  }
+
+  async crearGrupo(datos, usuarioAutenticado) {
+    const creadorId = usuarioAutenticado?.id;
+    if (!validarId(creadorId)) throw httpError(401, 'Identidad de usuario no valida.');
+    const { nombre, participantUserIds } = validarGrupo(datos, creadorId);
+    const ids = [creadorId, ...participantUserIds];
+    const activos = await chatRepository.buscarEmpleadosActivos(ids);
+    if (!activos.some((empleado) => empleado.id === creadorId)) {
+      throw httpError(403, 'El usuario autenticado no esta activo.');
+    }
+    if (new Set(activos.map((empleado) => empleado.id)).size !== ids.length) {
+      throw httpError(404, 'Uno o mas empleados invitados no existen o estan inactivos.');
+    }
+    return chatRepository.crearGrupo({ nombre, creadorId, participantUserIds });
+  }
+
+  async obtenerParticipantesGrupo(conversationId, usuarioAutenticado) {
+    if (!validarId(usuarioAutenticado?.id)) throw httpError(401, 'Identidad de usuario no valida.');
+    if (!validarId(conversationId)) throw httpError(400, 'ID de conversacion no valido.');
+    const miembro = await chatRepository.buscarMiembroGrupoActivo(conversationId, usuarioAutenticado.id);
+    if (!miembro) throw httpError(404, 'Grupo no encontrado.');
+    return chatRepository.listarParticipantesGrupo(conversationId);
   }
 
   async verificarAcceso(conversationId, usuarioAutenticado) {

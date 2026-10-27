@@ -17,6 +17,39 @@ class ChatRepository {
     return prisma.user.findFirst({ where: { id, activo: true }, select: selectUser });
   }
 
+  async buscarEmpleadosActivos(ids) {
+    return prisma.user.findMany({ where: { id: { in: ids }, activo: true }, select: selectUser });
+  }
+
+  async crearGrupo({ nombre, creadorId, participantUserIds }) {
+    return prisma.chatConversation.create({
+      data: {
+        tipo: 'INTERNO_GRUPAL', estado: 'EN_CURSO', nombre, createdByUserId: creadorId,
+        participants: { create: [
+          { userId: creadorId, rol: 'ADMINISTRADOR' },
+          ...participantUserIds.map((userId) => ({ userId, rol: 'MIEMBRO' })),
+        ] },
+      },
+      include: conversationInclude,
+    });
+  }
+
+  async buscarMiembroGrupoActivo(conversationId, userId) {
+    return prisma.chatParticipant.findFirst({
+      where: { conversationId, userId, leftAt: null,
+        user: { activo: true }, conversation: { tipo: 'INTERNO_GRUPAL' } },
+      select: { id: true, rol: true },
+    });
+  }
+
+  async listarParticipantesGrupo(conversationId) {
+    return prisma.chatParticipant.findMany({
+      where: { conversationId, leftAt: null, user: { activo: true } },
+      select: { id: true, userId: true, rol: true, user: { select: selectUser } },
+      orderBy: { id: 'asc' },
+    });
+  }
+
   async buscarPrivada(privatePairKey) {
     return prisma.chatConversation.findUnique({
       where: { privatePairKey },

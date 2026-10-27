@@ -14,6 +14,22 @@ class ChatController {
     }
   }
 
+  async crearGrupo(req, res, next) {
+    try {
+      const grupo = await chatService.crearGrupo(req.body, req.user);
+      return res.status(201).json({ success: true, message: 'Grupo creado.', data: grupo });
+    } catch (error) { return next(error); }
+  }
+
+  async obtenerParticipantesGrupo(req, res, next) {
+    try {
+      const participantes = await chatService.obtenerParticipantesGrupo(
+        Number(req.params.conversationId), req.user
+      );
+      return res.status(200).json({ success: true, data: { participants: participantes } });
+    } catch (error) { return next(error); }
+  }
+
   async enviarMensaje(req, res, next) {
     try {
       const resultado = await chatService.enviarMensaje(Number(req.params.conversationId), req.body, req.user);

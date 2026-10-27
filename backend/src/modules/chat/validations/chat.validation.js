@@ -42,4 +42,20 @@ function validarPaginacion(query) {
   return { limit, cursor };
 }
 
-module.exports = { validarId, validarDestinatario, validarEnvio, validarPaginacion };
+function validarGrupo(datos, creadorId) {
+  if (!datos || typeof datos !== 'object' || Array.isArray(datos) ||
+      typeof datos.nombre !== 'string' || !datos.nombre.trim() ||
+      datos.nombre.trim().length > 120 ||
+      !Array.isArray(datos.participantUserIds) ||
+      datos.participantUserIds.length < 1 || datos.participantUserIds.length > 49 ||
+      !datos.participantUserIds.every(validarId) ||
+      new Set(datos.participantUserIds).size !== datos.participantUserIds.length ||
+      datos.participantUserIds.includes(creadorId)) {
+    const error = new Error('Indica un nombre de 1 a 120 caracteres y entre 1 y 49 empleados distintos del creador, sin duplicados.');
+    error.status = 400;
+    throw error;
+  }
+  return { nombre: datos.nombre.trim(), participantUserIds: datos.participantUserIds };
+}
+
+module.exports = { validarId, validarDestinatario, validarEnvio, validarPaginacion, validarGrupo };
