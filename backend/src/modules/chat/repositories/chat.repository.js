@@ -50,6 +50,51 @@ class ChatRepository {
     });
   }
 
+  // Operaciones de membresia atomicas, con aislamiento serializable.
+  async modificarMembresia({ conversationId, actorId, targetId, accion }) {
+    const ejecutar = async () => prisma.$transaction(async (tx) => {
+      const actor = await tx.chatParticipant.findFirst({
+        where: { conversationId, userId: actorId, leftAt: null, user: { activo: true },
+          conversation: { tipo: 'INTERNO_GRUPAL' } },
+        select: { id: true, rol: true },
+      });
+      if (!actor) return { error: 'NOT_FOUND' };
+      if (accion !== 'SALIR' && actor.rol !== 'ADMINISTRADOR') return { error: 'FORBIDDEN' };
+      const miembro = await tx.chatParticipant.findUnique({
+        where: { conversationId_userId: { conversationId, userId: targetId } },
+        select: { id: true, rol: true, leftAt: true },
+      });
+      if (accion === 'AGREGAR') {
+        const empleado = await tx.user.findFirst({ where: { id: targetId, activo: true }, select: { id: true } });
+        if (!empleado) return { error: 'EMPLOYEE_NOT_FOUND' };
+        if (miembro && !miembro.leftAt) return { error: 'ALREADY_MEMBER' };
+        const result = miembro
+          ? await tx.chatParticipant.update({ where: { id: miembro.id }, data: { leftAt: null, rol: 'MIEMBRO' } })
+          : await tx.chatParticipant.create({ data: { conversationId, userId: targetId, rol: 'MIEMBRO' } });
+        return { participante: result };
+      }
+      if (!miembro || miembro.leftAt) return { error: 'NOT_MEMBER' };
+      if (miembro.rol === 'ADMINISTRADOR') {
+        const admins = await tx.chatParticipant.count({
+          where: { conversationId, rol: 'ADMINISTRADOR', leftAt: null, user: { activo: true } },
+        });
+        if (admins <= 1) return { error: 'LAST_ADMIN' };
+      }
+      const result = await tx.chatParticipant.update({
+        where: { id: miembro.id }, data: { leftAt: new Date() },
+      });
+      return { participante: result };
+    }, { isolationLevel: 'Serializable' });
+    for (let intento = 0; intento < 3; intento++) {
+      try { return await ejecutar(); }
+      catch (error) {
+        if (error.code === 'P2034' && intento < 2) continue;
+        if (error.code === 'P2002') return { error: 'ALREADY_MEMBER' };
+        throw error;
+      }
+    }
+  }
+
   async buscarPrivada(privatePairKey) {
     return prisma.chatConversation.findUnique({
       where: { privatePairKey },
@@ -84,7 +129,7 @@ class ChatRepository {
         userId,
         leftAt: null,
         user: { activo: true },
-        conversation: { tipo: 'INTERNO_PRIVADO' },
+        conversation: { tipo: { in: ['INTERNO_PRIVADO', 'INTERNO_GRUPAL'] } },
       },
       select: { id: true, conversationId: true, userId: true },
     });

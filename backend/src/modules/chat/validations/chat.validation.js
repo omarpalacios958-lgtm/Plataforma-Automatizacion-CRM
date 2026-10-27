@@ -58,4 +58,11 @@ function validarGrupo(datos, creadorId) {
   return { nombre: datos.nombre.trim(), participantUserIds: datos.participantUserIds };
 }
 
-module.exports = { validarId, validarDestinatario, validarEnvio, validarPaginacion, validarGrupo };
+function validarEmpleadoObjetivo(datos) {
+  if (!datos || typeof datos !== 'object' || Array.isArray(datos) || !validarId(datos.userId)) {
+    const error = new Error('userId debe ser un ID positivo.'); error.status = 400; throw error;
+  }
+  return datos.userId;
+}
+
+module.exports = { validarId, validarDestinatario, validarEnvio, validarPaginacion, validarGrupo, validarEmpleadoObjetivo };

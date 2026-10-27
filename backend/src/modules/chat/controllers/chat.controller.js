@@ -30,6 +30,27 @@ class ChatController {
     } catch (error) { return next(error); }
   }
 
+  async agregarMiembroGrupo(req, res, next) {
+    try {
+      const data = await chatService.administrarMiembroGrupo(Number(req.params.conversationId), req.body, req.user, 'AGREGAR');
+      return res.status(200).json({ success: true, message: 'Empleado incorporado.', data });
+    } catch (error) { return next(error); }
+  }
+
+  async retirarMiembroGrupo(req, res, next) {
+    try {
+      const data = await chatService.administrarMiembroGrupo(Number(req.params.conversationId), { userId: Number(req.params.userId) }, req.user, 'RETIRAR');
+      return res.status(200).json({ success: true, message: 'Empleado retirado.', data });
+    } catch (error) { return next(error); }
+  }
+
+  async abandonarGrupo(req, res, next) {
+    try {
+      const data = await chatService.administrarMiembroGrupo(Number(req.params.conversationId), null, req.user, 'SALIR');
+      return res.status(200).json({ success: true, message: 'Abandonaste el grupo.', data });
+    } catch (error) { return next(error); }
+  }
+
   async enviarMensaje(req, res, next) {
     try {
       const resultado = await chatService.enviarMensaje(Number(req.params.conversationId), req.body, req.user);

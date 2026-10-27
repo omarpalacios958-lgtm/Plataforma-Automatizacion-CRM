@@ -1,5 +1,5 @@
 const chatRepository = require('../repositories/chat.repository');
-const { validarId, validarDestinatario, validarEnvio, validarPaginacion, validarGrupo } = require('../validations/chat.validation');
+const { validarId, validarDestinatario, validarEnvio, validarPaginacion, validarGrupo, validarEmpleadoObjetivo } = require('../validations/chat.validation');
 
 function httpError(status, message) {
   const error = new Error(message);
@@ -68,6 +68,27 @@ class ChatService {
     const miembro = await chatRepository.buscarMiembroGrupoActivo(conversationId, usuarioAutenticado.id);
     if (!miembro) throw httpError(404, 'Grupo no encontrado.');
     return chatRepository.listarParticipantesGrupo(conversationId);
+  }
+
+  async administrarMiembroGrupo(conversationId, datos, usuarioAutenticado, accion) {
+    const actorId = usuarioAutenticado?.id;
+    if (!validarId(actorId)) throw httpError(401, 'Identidad de usuario no valida.');
+    if (!validarId(conversationId)) throw httpError(400, 'ID de conversacion no valido.');
+    const targetId = accion === 'SALIR' ? actorId : validarEmpleadoObjetivo(datos);
+    if (accion === 'AGREGAR' && actorId === targetId) {
+      throw httpError(400, 'Ya perteneces al grupo.');
+    }
+    const resultado = await chatRepository.modificarMembresia({ conversationId, actorId, targetId, accion });
+    const errores = {
+      NOT_FOUND: [404, 'Grupo no encontrado.'], FORBIDDEN: [403, 'Solo un administrador del grupo puede modificar miembros.'],
+      EMPLOYEE_NOT_FOUND: [404, 'Empleado inexistente o inactivo.'], ALREADY_MEMBER: [409, 'El empleado ya pertenece al grupo.'],
+      NOT_MEMBER: [404, 'El empleado no pertenece al grupo.'], LAST_ADMIN: [409, 'No se puede retirar al ultimo administrador activo.'],
+    };
+    if (resultado.error) {
+      const [status, mensaje] = errores[resultado.error] || [500, 'Error al modificar el grupo.'];
+      throw httpError(status, mensaje);
+    }
+    return resultado.participante;
   }
 
   async verificarAcceso(conversationId, usuarioAutenticado) {
