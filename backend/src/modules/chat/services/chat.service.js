@@ -1,5 +1,5 @@
 const chatRepository = require('../repositories/chat.repository');
-const { validarId, validarDestinatario } = require('../validations/chat.validation');
+const { validarId, validarDestinatario, validarEnvio, validarPaginacion } = require('../validations/chat.validation');
 
 function httpError(status, message) {
   const error = new Error(message);
@@ -46,6 +46,56 @@ class ChatService {
       throw error;
     }
   }
+
+  async verificarAcceso(conversationId, usuarioAutenticado) {
+    if (!validarId(usuarioAutenticado?.id)) {
+      throw httpError(401, 'Identidad de usuario no valida.');
+    }
+    if (!validarId(conversationId)) {
+      throw httpError(400, 'ID de conversacion no valido.');
+    }
+    const participante = await chatRepository.buscarParticipanteActivo(
+      conversationId, usuarioAutenticado.id
+    );
+    if (!participante) {
+      // No revelar si la conversacion existe o pertenece a otro empleado.
+      throw httpError(404, 'Conversacion no encontrada.');
+    }
+    return participante;
+  }
+
+  async enviarMensaje(conversationId, datos, usuarioAutenticado) {
+    const participante = await this.verificarAcceso(conversationId, usuarioAutenticado);
+    const { contenido, clientMessageId } = validarEnvio(datos);
+    const existente = await chatRepository.buscarMensajePorClave(participante.id, clientMessageId);
+    if (existente) return this.resolverReintento(existente, contenido, conversationId);
+    try {
+      const mensaje = await chatRepository.crearMensaje({
+        conversationId, participantId: participante.id, contenido, clientMessageId,
+      });
+      return { creado: true, mensaje };
+    } catch (error) {
+      if (error.code === 'P2002') {
+        const repetido = await chatRepository.buscarMensajePorClave(participante.id, clientMessageId);
+        if (repetido) return this.resolverReintento(repetido, contenido, conversationId);
+      }
+      throw error;
+    }
+  }
+
+  resolverReintento(existente, contenido, conversationId) {
+    if (existente.conversationId !== conversationId || existente.contenido !== contenido) {
+      throw httpError(409, 'clientMessageId ya fue utilizado para otro mensaje.');
+    }
+    return { creado: false, mensaje: existente };
+  }
+
+  async obtenerMensajes(conversationId, query, usuarioAutenticado) {
+    await this.verificarAcceso(conversationId, usuarioAutenticado);
+    const pagina = validarPaginacion(query);
+    return chatRepository.listarMensajes({ conversationId, ...pagina });
+  }
+
 }
 
 module.exports = new ChatService();

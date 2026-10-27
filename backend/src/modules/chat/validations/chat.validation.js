@@ -11,4 +11,35 @@ function validarDestinatario(datos) {
   return datos.recipientUserId;
 }
 
-module.exports = { validarId, validarDestinatario };
+function validarEnvio(datos) {
+  if (!datos || typeof datos !== 'object' || Array.isArray(datos) ||
+      typeof datos.contenido !== 'string' || !datos.contenido.trim() ||
+      datos.contenido.length > 10000) {
+    const error = new Error('El contenido debe tener entre 1 y 10000 caracteres.');
+    error.status = 400;
+    throw error;
+  }
+  if (typeof datos.clientMessageId !== 'string' ||
+      !/^[A-Za-z0-9_-]{8,128}$/.test(datos.clientMessageId)) {
+    const error = new Error('clientMessageId debe tener entre 8 y 128 caracteres alfanumericos, guion o guion bajo.');
+    error.status = 400;
+    throw error;
+  }
+  return { contenido: datos.contenido.trim(), clientMessageId: datos.clientMessageId };
+}
+
+function validarPaginacion(query) {
+  const limit = query.limit === undefined ? 20 : Number(query.limit);
+  const cursor = query.cursor === undefined ? null : Number(query.cursor);
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50 ||
+      (cursor !== null && !validarId(cursor)) ||
+      (query.limit !== undefined && !/^[0-9]+$/.test(String(query.limit))) ||
+      (query.cursor !== undefined && !/^[0-9]+$/.test(String(query.cursor)))) {
+    const error = new Error('Paginacion invalida: limit debe ser 1-50 y cursor un ID positivo.');
+    error.status = 400;
+    throw error;
+  }
+  return { limit, cursor };
+}
+
+module.exports = { validarId, validarDestinatario, validarEnvio, validarPaginacion };
