@@ -23,6 +23,7 @@ const dashboardRoutes = require("./modules/dashboard/routes/dashboard.routes");
 const companyRoutes = require("./modules/companies/routes/company.routes");
 const fileRoutes = require("./modules/files/routes/file.routes");
 const automationRoutes = require("./modules/automations/routes/automation.routes");
+const chatRoutes = require("./modules/chat/routes/chat.routes");
 
 const app = express();
 
@@ -58,6 +59,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api/automations", automationRoutes);
+app.use("/api/chat", chatRoutes);
 
 // ===========================
 // Ruta de prueba
