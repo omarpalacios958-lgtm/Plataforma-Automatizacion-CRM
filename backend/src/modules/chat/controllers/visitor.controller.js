@@ -42,6 +42,29 @@ class VisitorController {
     } catch (error) { return next(error); }
   }
 
+
+  async enviarMensaje(req, res, next) {
+    try {
+      const result = await require('../services/visitor-message.service').enviar(
+        req.visitorSession.visitor.id, req.params.conversationId, req.body
+      );
+      res.set('Cache-Control', 'no-store');
+      return res.status(result.creado ? 201 : 200).json({
+        success: true, data: result.mensaje, creado: result.creado,
+      });
+    } catch (error) { return next(error); }
+  }
+
+  async listarMensajes(req, res, next) {
+    try {
+      const data = await require('../services/visitor-message.service').listar(
+        req.visitorSession.visitor.id, req.params.conversationId, req.query
+      );
+      res.set('Cache-Control', 'no-store');
+      return res.status(200).json({ success: true, data });
+    } catch (error) { return next(error); }
+  }
+
   async cerrarSesion(req, res, next) {
     try {
       await visitorService.cerrarSesion(req.visitorSession.id);

@@ -10,5 +10,7 @@ router.get('/session', visitorAuth, (req, res, next) => controller.consultarSesi
 router.post('/conversations', visitorAuth, (req, res, next) => controller.abrirConversacion(req, res, next));
 router.get('/conversations', visitorAuth, (req, res, next) => controller.listarConversaciones(req, res, next));
 router.get('/conversations/:conversationId', visitorAuth, (req, res, next) => controller.consultarConversacion(req, res, next));
+router.post('/conversations/:conversationId/messages', visitorAuth, (req, res, next) => controller.enviarMensaje(req, res, next));
+router.get('/conversations/:conversationId/messages', visitorAuth, (req, res, next) => controller.listarMensajes(req, res, next));
 router.post('/logout', visitorAuth, (req, res, next) => controller.cerrarSesion(req, res, next));
 module.exports = router;
