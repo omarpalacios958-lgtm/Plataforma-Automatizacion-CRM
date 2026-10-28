@@ -2,9 +2,11 @@ const express = require('express');
 const authMiddleware = require('../../auth/middlewares/auth.middleware');
 const chatController = require('../controllers/chat.controller');
 const visitorRoutes = require('./visitor.routes');
+const commercialRoutes = require('./commercial.routes');
 
 const router = express.Router();
 router.use('/visitors', visitorRoutes);
+router.use('/commercial', commercialRoutes);
 router.post('/groups', authMiddleware, (req, res, next) => chatController.crearGrupo(req, res, next));
 router.get('/groups/:conversationId/participants', authMiddleware,
   (req, res, next) => chatController.obtenerParticipantesGrupo(req, res, next));
