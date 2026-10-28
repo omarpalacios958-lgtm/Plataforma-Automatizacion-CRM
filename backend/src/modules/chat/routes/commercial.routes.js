@@ -20,10 +20,20 @@ router.get(
   (req, res, next) => controller.listar(req, res, next)
 );
 
-// Debe declararse antes de /conversations/:conversationId.
+// Ruta fija antes de la ruta con ID dinámico.
 router.get(
   '/conversations/mine',
   (req, res, next) => controller.listarPropias(req, res, next)
+);
+
+router.get(
+  '/conversations/:conversationId/messages',
+  (req, res, next) => controller.listarMensajes(req, res, next)
+);
+
+router.post(
+  '/conversations/:conversationId/messages',
+  (req, res, next) => controller.enviarMensaje(req, res, next)
 );
 
 router.get(
