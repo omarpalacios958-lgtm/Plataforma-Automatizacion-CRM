@@ -22,12 +22,14 @@ import ChatVisitor from "../src/modules/chat/ChatVisitor.jsx";
 
 import {
   consultarSesionVisitante,
+  crearSesionVisitante,
   eliminarTokenVisitante,
   obtenerTokenVisitante,
 } from "../src/services/chat-visitor.service.js";
 
 vi.mock("../src/services/chat-visitor.service.js", () => ({
   consultarSesionVisitante: vi.fn(),
+  crearSesionVisitante: vi.fn(),
   eliminarTokenVisitante: vi.fn(),
   obtenerTokenVisitante: vi.fn(),
 }));
@@ -237,5 +239,145 @@ describe("ChatVisitor - recuperación de sesión", () => {
     ).toBeTruthy();
 
     expect(eliminarTokenVisitante).not.toHaveBeenCalled();
+  });
+});
+
+describe("ChatVisitor - creación de sesión", () => {
+  it("crea una sesión con nombre y correo opcional", async () => {
+    crearSesionVisitante.mockResolvedValue({
+      visitor: { id: 20, nombre: "Ana", correo: null },
+      token: "a".repeat(43),
+      expiresAt: "2026-10-30T12:00:00.000Z",
+    });
+
+    render(<ChatVisitor />);
+
+    fireEvent.change(screen.getByLabelText("Nombre *"), {
+      target: { value: "  Ana  " },
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Continuar como visitante",
+      }),
+    );
+
+    expect(await screen.findByText("Hola, Ana")).toBeTruthy();
+
+    expect(crearSesionVisitante).toHaveBeenCalledWith({
+      nombre: "Ana",
+      correo: null,
+    });
+  });
+
+  it("normaliza el correo antes de crear la sesión", async () => {
+    crearSesionVisitante.mockResolvedValue({
+      visitor: {
+        id: 21,
+        nombre: "Carlos",
+        correo: "carlos@ejemplo.com",
+      },
+      token: "b".repeat(43),
+      expiresAt: "2026-10-30T12:00:00.000Z",
+    });
+
+    render(<ChatVisitor />);
+
+    fireEvent.change(screen.getByLabelText("Nombre *"), {
+      target: { value: "Carlos" },
+    });
+
+    fireEvent.change(
+      screen.getByLabelText("Correo electrónico (opcional)"),
+      {
+        target: { value: " CARLOS@EJEMPLO.COM " },
+      },
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Continuar como visitante",
+      }),
+    );
+
+    expect(await screen.findByText("Hola, Carlos")).toBeTruthy();
+
+    expect(crearSesionVisitante).toHaveBeenCalledWith({
+      nombre: "Carlos",
+      correo: "carlos@ejemplo.com",
+    });
+  });
+
+  it("rechaza nombres inválidos sin llamar al backend", async () => {
+    render(<ChatVisitor />);
+
+    fireEvent.change(screen.getByLabelText("Nombre *"), {
+      target: { value: "A" },
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Continuar como visitante",
+      }),
+    );
+
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(crearSesionVisitante).not.toHaveBeenCalled();
+  });
+
+  it("rechaza correos inválidos sin llamar al backend", async () => {
+    render(<ChatVisitor />);
+
+    fireEvent.change(screen.getByLabelText("Nombre *"), {
+      target: { value: "María" },
+    });
+
+    fireEvent.change(
+      screen.getByLabelText("Correo electrónico (opcional)"),
+      {
+        target: { value: "correo-invalido" },
+      },
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Continuar como visitante",
+      }),
+    );
+
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(crearSesionVisitante).not.toHaveBeenCalled();
+  });
+
+  it("muestra errores del servidor y conserva los datos", async () => {
+    crearSesionVisitante.mockRejectedValue(
+      Object.assign(new Error("No fue posible crear la sesión."), {
+        status: 500,
+      }),
+    );
+
+    render(<ChatVisitor />);
+
+    fireEvent.change(screen.getByLabelText("Nombre *"), {
+      target: { value: "Lucía" },
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Continuar como visitante",
+      }),
+    );
+
+    expect(
+      await screen.findByText("No fue posible crear la sesión."),
+    ).toBeTruthy();
+
+    expect(screen.getByLabelText("Nombre *").value).toBe("Lucía");
+
+    expect(
+      screen.getByRole("button", {
+        name: "Continuar como visitante",
+      }).disabled,
+    ).toBe(false);
   });
 });
