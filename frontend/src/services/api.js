@@ -1,3 +1,4 @@
+
 const API_BASE_URL = "http://localhost:3000/api";
 
 async function apiRequest(endpoint, options = {}) {
@@ -24,9 +25,13 @@ async function apiRequest(endpoint, options = {}) {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(
+    const error = new Error(
       data.message || "Ocurrió un error al comunicarse con el servidor.",
     );
+
+    error.status = response.status;
+
+    throw error;
   }
 
   return data;
