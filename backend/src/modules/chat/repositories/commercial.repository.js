@@ -1,4 +1,3 @@
-
 'use strict';
 
 const prisma = require('../../../config/database');
@@ -186,6 +185,56 @@ class CommercialRepository {
       return { conversation };
     });
   }
+
+  async cambiarEstado(conversationId, agentId, estadoActual, estadoNuevo) {
+  const result = await prisma.chatConversation.updateMany({
+    where: {
+      id: conversationId,
+      tipo: 'COMERCIAL',
+      assignedAgentId: agentId,
+      estado: estadoActual,
+      participants: {
+        some: {
+          userId: agentId,
+          rol: 'AGENTE',
+          leftAt: null,
+        },
+      },
+    },
+    data: {
+      estado: estadoNuevo,
+    },
+  });
+
+  if (result.count !== 1) {
+    const accessible = await prisma.chatConversation.findFirst({
+      where: {
+        id: conversationId,
+        tipo: 'COMERCIAL',
+        assignedAgentId: agentId,
+        participants: {
+          some: {
+            userId: agentId,
+            rol: 'AGENTE',
+            leftAt: null,
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    return {
+      error: accessible ? 'CONFLICT' : 'NOT_FOUND',
+    };
+  }
+
+  const conversation = await prisma.chatConversation.findUnique({
+    where: { id: conversationId },
+    select: conversationSelect,
+  });
+
+  return { conversation };
+ }
 }
 
 module.exports = new CommercialRepository();

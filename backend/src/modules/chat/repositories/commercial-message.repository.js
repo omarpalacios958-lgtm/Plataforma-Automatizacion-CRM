@@ -50,6 +50,20 @@ class CommercialMessageRepository {
     clientMessageId,
   }) {
     return prisma.$transaction(async (tx) => {
+      // Bloquea la fila de la conversacion.
+      // Evita que el cierre se complete mientras
+      // se esta validando y guardando el mensaje.
+      const locked = await tx.$queryRaw`
+        SELECT id
+        FROM "ChatConversation"
+        WHERE id = ${conversationId}
+        FOR UPDATE
+      `;
+
+      if (locked.length === 0) {
+        return { error: 'NOT_FOUND' };
+      }
+
       const participant = await tx.chatParticipant.findFirst({
         where: filtroAgente(conversationId, agentId),
         select: {
@@ -64,8 +78,8 @@ class CommercialMessageRepository {
         return { error: 'NOT_FOUND' };
       }
 
-      // La conversación resuelta conserva su historial,
-      // pero no admite mensajes nuevos.
+      // Una conversacion resuelta no admite
+      // nuevos mensajes del agente.
       if (participant.conversation.estado === 'RESUELTA') {
         return { error: 'RESOLVED' };
       }
@@ -101,8 +115,6 @@ class CommercialMessageRepository {
         creado: true,
         mensaje,
       };
-    }, {
-      isolationLevel: 'Serializable',
     });
   }
 }

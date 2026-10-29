@@ -32,25 +32,70 @@ class VisitorMessageService {
     return { creado: false, mensaje: existing };
   }
 
+
   async enviar(visitorId, conversationId, body) {
-    const participant = await this.verificarAcceso(visitorId, conversationId);
+    const participant = await this.verificarAcceso(
+      visitorId,
+      conversationId
+    );
+
     const id = Number(conversationId);
     const { contenido, clientMessageId } = validarEnvio(body);
-    const existing = await chatRepository.buscarMensajePorClave(participant.id, clientMessageId);
-    if (existing) return this.resolverReintento(existing, contenido, id);
-    try {
-      const mensaje = await chatRepository.crearMensaje({
-        conversationId: id, participantId: participant.id, contenido, clientMessageId,
-      });
-      return { creado: true, mensaje };
-    } catch (error) {
-      if (error.code === 'P2002') {
-        const repeated = await chatRepository.buscarMensajePorClave(participant.id, clientMessageId);
-        if (repeated) return this.resolverReintento(repeated, contenido, id);
+
+    for (let intento = 0; intento < 3; intento++) {
+      try {
+        const result = await visitorRepository.enviarAtomico({
+          visitorId: Number(visitorId),
+          conversationId: id,
+          contenido,
+          clientMessageId,
+        });
+
+        if (result.error === 'NOT_FOUND') {
+          throw httpError(404, 'Conversacion no encontrada.');
+        }
+
+        if (result.error === 'RESOLVED') {
+          throw httpError(
+            409,
+            'La conversacion esta resuelta y no admite mensajes.'
+          );
+        }
+
+        if (!result.creado) {
+          return this.resolverReintento(
+            result.mensaje,
+            contenido,
+            id
+          );
+        }
+
+        return result;
+      } catch (error) {
+        if (error.code === 'P2034' && intento < 2) {
+          continue;
+        }
+
+        if (error.code === 'P2002') {
+          const existing = await chatRepository.buscarMensajePorClave(
+            participant.id,
+            clientMessageId
+          );
+
+          if (existing) {
+            return this.resolverReintento(
+              existing,
+              contenido,
+              id
+            );
+          }
+        }
+
+        throw error;
       }
-      throw error;
     }
   }
+
 
   async listar(visitorId, conversationId, query) {
     await this.verificarAcceso(visitorId, conversationId);

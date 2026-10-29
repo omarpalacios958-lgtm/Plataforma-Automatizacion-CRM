@@ -1,4 +1,3 @@
-
 'use strict';
 
 const service = require('../services/commercial.service');
@@ -63,6 +62,25 @@ class CommercialController {
       const data = await service.asignar(
         req.user,
         req.params.conversationId
+      );
+
+      res.set('Cache-Control', 'no-store');
+
+      return res.status(200).json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async cambiarEstado(req, res, next) {
+    try {
+      const data = await service.cambiarEstado(
+        req.user,
+        req.params.conversationId,
+        req.body
       );
 
       res.set('Cache-Control', 'no-store');

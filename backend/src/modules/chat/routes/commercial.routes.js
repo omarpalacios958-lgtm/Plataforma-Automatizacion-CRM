@@ -46,4 +46,9 @@ router.post(
   (req, res, next) => controller.asignar(req, res, next)
 );
 
+router.patch(
+  '/conversations/:conversationId/status',
+  (req, res, next) => controller.cambiarEstado(req, res, next)
+);
+
 module.exports = router;

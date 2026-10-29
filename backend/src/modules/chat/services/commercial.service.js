@@ -1,4 +1,3 @@
-
 'use strict';
 
 const repository = require('../repositories/commercial.repository');
@@ -180,6 +179,50 @@ class CommercialService {
       throw httpError(
         409,
         'La conversacion ya no esta pendiente o ya fue asignada.'
+      );
+    }
+
+    return result.conversation;
+  }
+
+  async cambiarEstado(user, conversationId, body) {
+    const employee = await this.autorizar(user);
+
+    if (!validId(conversationId)) {
+      throw httpError(400, 'ID de conversacion invalido.');
+    }
+
+    if (
+      !body ||
+      typeof body !== 'object' ||
+      Array.isArray(body) ||
+      !['EN_CURSO', 'RESUELTA'].includes(body.estado)
+    ) {
+      throw httpError(400, 'Estado de destino invalido.');
+    }
+
+    const estadoActual = body.estado === 'EN_CURSO'
+      ? 'ASIGNADA'
+      : 'EN_CURSO';
+
+      const result = await repository.cambiarEstado(
+      Number(conversationId),
+      employee.id,
+      estadoActual,
+      body.estado
+    );
+
+    if (result.error === 'NOT_FOUND') {
+      throw httpError(
+        404,
+        'Conversacion comercial no encontrada.'
+      );
+    }
+
+    if (result.error === 'CONFLICT') {
+      throw httpError(
+        409,
+        'La conversacion no permite esta transicion de estado.'
       );
     }
 
