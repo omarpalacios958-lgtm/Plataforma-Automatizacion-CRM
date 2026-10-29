@@ -34,7 +34,20 @@ app.set("etag", false);
 
 app.use(helmet());
 
-app.use(cors());
+const origenesPermitidos = [
+    "http://localhost:5173",
+    process.env.FRONTEND_URL
+].filter(Boolean);
+
+app.use(cors({
+    origin(origin, callback) {
+        if (!origin || origenesPermitidos.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(null, false);
+    }
+}));
 
 app.use(express.json());
 
