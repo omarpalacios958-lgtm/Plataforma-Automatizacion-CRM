@@ -1,3 +1,4 @@
+
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import MainLayout from "../layouts/MainLayout/MainLayout";
@@ -12,15 +13,19 @@ import Tasks from "../modules/tasks/Tasks";
 import Notifications from "../modules/notifications/Notifications";
 import Files from "../modules/files/Files";
 import Users from "../modules/users/Users";
+import Automations from "../modules/automations/Automations";
+import ChatVisitor from "../modules/chat/ChatVisitor";
+
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
-import Automations from "../modules/automations/Automations";
 
 function AppRoutes() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+
+        <Route path="/chat" element={<ChatVisitor />} />
 
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
