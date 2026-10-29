@@ -1,4 +1,5 @@
-﻿const API_BASE_URL = "http://localhost:3000/api";
+﻿const API_BASE_URL =
+  import.meta.env?.VITE_API_BASE_URL || "http://localhost:3000/api";
 const VISITOR_BASE_PATH = "/chat/visitors";
 const VISITOR_TOKEN_KEY = "crm_visitor_token";
 
