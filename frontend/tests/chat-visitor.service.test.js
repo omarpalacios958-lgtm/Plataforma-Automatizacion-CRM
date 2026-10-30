@@ -48,10 +48,22 @@ beforeEach(() => {
   };
 
   globalThis.localStorage = {
-    getItem(key) {
-      return key === "crm_token" ? TOKEN_EMPLEADO : null;
-    },
-  };
+  getItem(key) {
+    if (key === "crm_token") {
+      return TOKEN_EMPLEADO;
+    }
+
+    return almacenamiento.get(key) ?? null;
+  },
+
+  setItem(key, value) {
+    almacenamiento.set(key, String(value));
+  },
+
+  removeItem(key) {
+    almacenamiento.delete(key);
+  },
+};
 
   globalThis.fetch = async (url, options = {}) => {
     solicitudes.push({ url, options });
@@ -92,7 +104,10 @@ test("crea sesión sin enviar el token del empleado", async () => {
   });
 
   assert.equal(sesion.token, TOKEN_VISITANTE);
-  assert.equal(obtenerTokenVisitante(), TOKEN_VISITANTE);
+  assert.equal(
+  globalThis.localStorage.getItem("crm_visitor_token"),
+  TOKEN_VISITANTE,
+);
   assert.equal(solicitudes.length, 1);
 
   const { url, options } = solicitudes[0];
@@ -318,4 +333,14 @@ test("permite eliminar explícitamente el token local", () => {
   eliminarTokenVisitante();
 
   assert.equal(obtenerTokenVisitante(), null);
+});
+
+test("recupera el token del visitante desde localStorage", () => {
+  almacenamiento.set("crm_visitor_token", TOKEN_VISITANTE);
+
+  assert.equal(obtenerTokenVisitante(), TOKEN_VISITANTE);
+  assert.equal(
+    globalThis.localStorage.getItem("crm_visitor_token"),
+    TOKEN_VISITANTE,
+  );
 });

@@ -4,7 +4,7 @@ const VISITOR_BASE_PATH = "/chat/visitors";
 const VISITOR_TOKEN_KEY = "crm_visitor_token";
 
 function obtenerTokenVisitante() {
-  return sessionStorage.getItem(VISITOR_TOKEN_KEY);
+  return localStorage.getItem(VISITOR_TOKEN_KEY);
 }
 
 function guardarTokenVisitante(token) {
@@ -12,11 +12,11 @@ function guardarTokenVisitante(token) {
     throw new Error("Token de visitante inválido.");
   }
 
-  sessionStorage.setItem(VISITOR_TOKEN_KEY, token);
+  localStorage.setItem(VISITOR_TOKEN_KEY, token);
 }
 
 function eliminarTokenVisitante() {
-  sessionStorage.removeItem(VISITOR_TOKEN_KEY);
+  localStorage.removeItem(VISITOR_TOKEN_KEY);
 }
 
 async function visitorRequest(endpoint, options = {}, requiereSesion = true) {
