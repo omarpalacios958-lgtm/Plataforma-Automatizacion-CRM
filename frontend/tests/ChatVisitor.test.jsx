@@ -21,16 +21,20 @@ import {
 import ChatVisitor from "../src/modules/chat/ChatVisitor.jsx";
 
 import {
+  abrirConversacionVisitante,
   consultarSesionVisitante,
   crearSesionVisitante,
   eliminarTokenVisitante,
+  listarConversacionesVisitante,
   obtenerTokenVisitante,
 } from "../src/services/chat-visitor.service.js";
 
 vi.mock("../src/services/chat-visitor.service.js", () => ({
+  abrirConversacionVisitante: vi.fn(),
   consultarSesionVisitante: vi.fn(),
   crearSesionVisitante: vi.fn(),
   eliminarTokenVisitante: vi.fn(),
+  listarConversacionesVisitante: vi.fn(),
   obtenerTokenVisitante: vi.fn(),
 }));
 
@@ -47,6 +51,7 @@ function crearPromesaPendiente() {
 beforeEach(() => {
   vi.clearAllMocks();
   obtenerTokenVisitante.mockReturnValue(null);
+  listarConversacionesVisitante.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -379,5 +384,226 @@ describe("ChatVisitor - creación de sesión", () => {
         name: "Continuar como visitante",
       }).disabled,
     ).toBe(false);
+  });
+});
+describe("ChatVisitor - conversaciones comerciales", () => {
+  const sesion = {
+    visitor: { id: 30, nombre: "Visitante Prueba" },
+    expiresAt: "2026-10-30T12:00:00.000Z",
+  };
+
+  // ... tus pruebas existentes ...
+
+  it("descarta la apertura si el componente se desmonta", async () => {
+    const solicitud = crearPromesaPendiente();
+
+    listarConversacionesVisitante.mockResolvedValue([]);
+    abrirConversacionVisitante.mockReturnValue(solicitud.promesa);
+
+    const { unmount } = render(<ChatVisitor />);
+
+    const boton = await screen.findByRole("button", {
+      name: "Iniciar conversación",
+    });
+
+    fireEvent.click(boton);
+
+    expect(abrirConversacionVisitante).toHaveBeenCalledTimes(1);
+
+    unmount();
+
+    solicitud.resolver({
+      success: true,
+      creada: true,
+      data: {
+        id: 49,
+        tipo: "COMERCIAL",
+        estado: "PENDIENTE",
+      },
+    });
+
+    await Promise.resolve();
+
+    expect(listarConversacionesVisitante).toHaveBeenCalledTimes(1);
+  });
+
+  it("regresa al formulario cuando vence la sesión al consultar conversaciones", async () => {
+  listarConversacionesVisitante.mockRejectedValueOnce(
+    Object.assign(new Error("Sesión vencida"), {
+      status: 401,
+    }),
+  );
+
+  render(<ChatVisitor />);
+
+  expect(
+    await screen.findByText("Bienvenido"),
+  ).toBeTruthy();
+
+  expect(eliminarTokenVisitante).toHaveBeenCalledTimes(1);
+
+  expect(
+    screen.getByRole("button", {
+      name: "Continuar como visitante",
+    }),
+  ).toBeTruthy();
+
+  expect(abrirConversacionVisitante).not.toHaveBeenCalled();
+});
+
+  beforeEach(() => {
+    obtenerTokenVisitante.mockReturnValue("token-valido");
+    consultarSesionVisitante.mockResolvedValue(sesion);
+  });
+
+  it("muestra la opción de iniciar conversación cuando no existe ninguna", async () => {
+    listarConversacionesVisitante.mockResolvedValue([]);
+
+    render(<ChatVisitor />);
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Iniciar conversación",
+      }),
+    ).toBeTruthy();
+
+    expect(abrirConversacionVisitante).not.toHaveBeenCalled();
+  });
+
+  it("recupera una conversación existente sin crear otra", async () => {
+    listarConversacionesVisitante.mockResolvedValue([
+      {
+        id: 45,
+        tipo: "COMERCIAL",
+        estado: "PENDIENTE",
+      },
+    ]);
+
+    render(<ChatVisitor />);
+
+    expect(
+      await screen.findByText("Número de conversación: 45"),
+    ).toBeTruthy();
+
+    expect(screen.getByText("Estado: PENDIENTE")).toBeTruthy();
+    expect(abrirConversacionVisitante).not.toHaveBeenCalled();
+  });
+
+  it("abre una conversación al solicitarla", async () => {
+    listarConversacionesVisitante.mockResolvedValue([]);
+
+    abrirConversacionVisitante.mockResolvedValue({
+      success: true,
+      creada: true,
+      data: {
+        id: 46,
+        tipo: "COMERCIAL",
+        estado: "PENDIENTE",
+      },
+    });
+
+    render(<ChatVisitor />);
+
+    const boton = await screen.findByRole("button", {
+      name: "Iniciar conversación",
+    });
+
+    fireEvent.click(boton);
+
+    expect(
+      await screen.findByText("Número de conversación: 46"),
+    ).toBeTruthy();
+
+    expect(abrirConversacionVisitante).toHaveBeenCalledTimes(1);
+  });
+
+  it("recupera una conversación creada cuando se pierde la respuesta", async () => {
+    const conversacion = {
+      id: 48,
+      tipo: "COMERCIAL",
+      estado: "PENDIENTE",
+    };
+
+    listarConversacionesVisitante
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([conversacion]);
+
+    abrirConversacionVisitante.mockRejectedValueOnce(
+      new Error("La conexión se interrumpió"),
+    );
+
+    render(<ChatVisitor />);
+
+    const boton = await screen.findByRole("button", {
+      name: "Iniciar conversación",
+    });
+
+    fireEvent.click(boton);
+
+    expect(
+      await screen.findByText("Número de conversación: 48"),
+    ).toBeTruthy();
+
+    expect(abrirConversacionVisitante).toHaveBeenCalledTimes(1);
+    expect(listarConversacionesVisitante).toHaveBeenCalledTimes(2);
+  });
+
+  it("permite reintentar cuando falla la consulta", async () => {
+    listarConversacionesVisitante
+      .mockRejectedValueOnce(new Error("Error de red"))
+      .mockResolvedValueOnce([]);
+
+    render(<ChatVisitor />);
+
+    const boton = await screen.findByRole("button", {
+      name: "Reintentar consulta",
+    });
+
+    fireEvent.click(boton);
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Iniciar conversación",
+      }),
+    ).toBeTruthy();
+
+    expect(listarConversacionesVisitante).toHaveBeenCalledTimes(2);
+  });
+
+  it("evita solicitudes duplicadas al iniciar conversación", async () => {
+    listarConversacionesVisitante.mockResolvedValue([]);
+
+    let resolver;
+
+    abrirConversacionVisitante.mockReturnValue(
+      new Promise((resolve) => {
+        resolver = resolve;
+      }),
+    );
+
+    render(<ChatVisitor />);
+
+    const boton = await screen.findByRole("button", {
+      name: "Iniciar conversación",
+    });
+
+    fireEvent.click(boton);
+    fireEvent.click(boton);
+
+    expect(abrirConversacionVisitante).toHaveBeenCalledTimes(1);
+
+    resolver({
+      success: true,
+      creada: true,
+      data: {
+        id: 47,
+        tipo: "COMERCIAL",
+        estado: "PENDIENTE",
+      },
+    });
+
+    expect(
+      await screen.findByText("Número de conversación: 47"),
+    ).toBeTruthy();
   });
 });

@@ -1,10 +1,11 @@
-
 import { useEffect, useRef, useState } from "react";
 
 import {
+  abrirConversacionVisitante,
   consultarSesionVisitante,
   crearSesionVisitante,
   eliminarTokenVisitante,
+  listarConversacionesVisitante,
   obtenerTokenVisitante,
 } from "../../services/chat-visitor.service.js";
 
@@ -57,6 +58,12 @@ function ChatVisitor() {
   const [correo, setCorreo] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [errorFormulario, setErrorFormulario] = useState("");
+  const [conversacion, setConversacion] = useState(null);
+  const [estadoConversacion, setEstadoConversacion] = useState("inactivo");
+  const [errorConversacion, setErrorConversacion] = useState("");
+  const [intentoConversacion, setIntentoConversacion] = useState(0);
+
+  const abriendoRef = useRef(false);
 
   const montado = useRef(false);
   const enviandoRef = useRef(false);
@@ -113,6 +120,59 @@ function ChatVisitor() {
     };
   }, [intento]);
 
+  useEffect(() => {
+    if (estado !== "autenticado") return;
+
+    let activo = true;
+
+    async function recuperarConversacion() {
+      setEstadoConversacion("consultando");
+      setErrorConversacion("");
+
+      try {
+        const conversaciones = await listarConversacionesVisitante();
+
+        if (!activo) return;
+
+        if (!Array.isArray(conversaciones)) {
+          throw new Error("Respuesta de conversaciones inválida.");
+        }
+
+        const existente = conversaciones[0] ?? null;
+
+        if (existente && !Number.isSafeInteger(existente.id)) {
+          throw new Error("La conversación recibida no es válida.");
+        }
+
+        setConversacion(existente);
+        setEstadoConversacion(existente ? "disponible" : "sin-conversacion");
+      } catch (err) {
+  if (!activo) return;
+
+  if (err?.status === 401) {
+    eliminarTokenVisitante();
+    setSesion(null);
+    setConversacion(null);
+    setEstadoConversacion("inactivo");
+    setErrorConversacion("");
+    setEstado("sin-sesion");
+    return;
+  }
+
+  setErrorConversacion(
+    "No fue posible consultar tus conversaciones. Intenta nuevamente.",
+  );
+  setEstadoConversacion("error");
+}
+    }
+
+    recuperarConversacion();
+
+    return () => {
+      activo = false;
+    };
+  }, [estado, intentoConversacion]);
+
   async function iniciarSesion(event) {
     event.preventDefault();
 
@@ -151,6 +211,38 @@ function ChatVisitor() {
       if (montado.current) {
         setEnviando(false);
       }
+    }
+  }
+
+  async function iniciarConversacion() {
+    if (abriendoRef.current || estadoConversacion !== "sin-conversacion") {
+      return;
+    }
+
+    abriendoRef.current = true;
+    setEstadoConversacion("abriendo");
+    setErrorConversacion("");
+
+    try {
+      const respuesta = await abrirConversacionVisitante();
+      const nuevaConversacion = respuesta.data;
+
+      if (!Number.isSafeInteger(nuevaConversacion?.id)) {
+        throw new Error("Respuesta de conversación inválida.");
+      }
+
+      if (!montado.current) return;
+
+      setConversacion(nuevaConversacion);
+      setEstadoConversacion("disponible");
+    } catch {
+      if (!montado.current) return;
+
+      // Se vuelve a consultar el servidor antes de permitir otra apertura:
+      // la primera solicitud pudo haberse completado aunque fallara la red.
+      setIntentoConversacion((actual) => actual + 1);
+    } finally {
+      abriendoRef.current = false;
     }
   }
 
@@ -266,10 +358,62 @@ function ChatVisitor() {
 
             <p>Tu sesión de visitante está activa.</p>
 
-            <p className="chat-visitor__hint">
-              La apertura de conversaciones se incorporará
-              posteriormente.
-            </p>
+            {estadoConversacion === "consultando" && (
+              <p role="status">Consultando tus conversaciones...</p>
+            )}
+
+            {estadoConversacion === "sin-conversacion" && (
+              <>
+                <p>Aún no tienes una conversación de atención.</p>
+
+                <button
+                  className="chat-visitor__button"
+                  type="button"
+                  onClick={iniciarConversacion}
+                >
+                  Iniciar conversación
+                </button>
+              </>
+            )}
+
+            {estadoConversacion === "abriendo" && (
+              <p role="status">Iniciando conversación...</p>
+            )}
+
+            {estadoConversacion === "disponible" && conversacion && (
+              <div className="chat-visitor__conversation">
+                <h3>Conversación de atención</h3>
+
+                <p>
+                  Número de conversación: {conversacion.id}
+                </p>
+
+                <p>
+                  Estado: {conversacion.estado}
+                </p>
+
+                <p className="chat-visitor__hint">
+                  La visualización y el envío de mensajes se
+                  incorporarán en la siguiente etapa.
+                </p>
+              </div>
+            )}
+
+            {estadoConversacion === "error" && (
+              <div role="alert">
+                <p>{errorConversacion}</p>
+
+                <button
+                  className="chat-visitor__button"
+                  type="button"
+                  onClick={() =>
+                    setIntentoConversacion((actual) => actual + 1)
+                  }
+                >
+                  Reintentar consulta
+                </button>
+              </div>
+            )}
           </div>
         )}
 

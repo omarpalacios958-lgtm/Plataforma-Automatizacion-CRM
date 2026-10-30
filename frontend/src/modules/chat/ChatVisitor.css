@@ -144,3 +144,19 @@
   opacity: 0.65;
   cursor: not-allowed;
 }
+
+.chat-visitor__conversation {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-sm);
+  background-color: var(--color-background);
+}
+
+.chat-visitor__conversation h3 {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
