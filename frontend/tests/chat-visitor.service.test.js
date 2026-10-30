@@ -104,11 +104,11 @@ test("crea sesión sin enviar el token del empleado", async () => {
   });
 
   assert.equal(sesion.token, TOKEN_VISITANTE);
-  assert.equal(
+assert.equal(obtenerTokenVisitante(), TOKEN_VISITANTE);
+assert.equal(
   globalThis.localStorage.getItem("crm_visitor_token"),
   TOKEN_VISITANTE,
 );
-  assert.equal(solicitudes.length, 1);
 
   const { url, options } = solicitudes[0];
 

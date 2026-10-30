@@ -10,6 +10,7 @@ import {
 } from "../../services/chat-visitor.service.js";
 
 import "./ChatVisitor.css";
+import ChatVisitorMessages from "./ChatVisitorMessages.jsx";
 
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Se replica la validación del backend para rechazar caracteres de control.
@@ -392,10 +393,7 @@ function ChatVisitor() {
                   Estado: {conversacion.estado}
                 </p>
 
-                <p className="chat-visitor__hint">
-                  La visualización y el envío de mensajes se
-                  incorporarán en la siguiente etapa.
-                </p>
+                <ChatVisitorMessages conversationId={conversacion.id} />
               </div>
             )}
 
