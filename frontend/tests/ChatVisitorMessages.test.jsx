@@ -1,4 +1,3 @@
-
 /* @vitest-environment jsdom */
 
 import { StrictMode } from "react";
@@ -20,9 +19,13 @@ import {
 } from "vitest";
 
 import ChatVisitorMessages from "../src/modules/chat/ChatVisitorMessages.jsx";
-import { listarMensajesVisitante } from "../src/services/chat-visitor.service.js";
+import {
+  enviarMensajeVisitante,
+  listarMensajesVisitante,
+} from "../src/services/chat-visitor.service.js";
 
 vi.mock("../src/services/chat-visitor.service.js", () => ({
+  enviarMensajeVisitante: vi.fn(),
   listarMensajesVisitante: vi.fn(),
 }));
 
@@ -321,6 +324,70 @@ describe("ChatVisitorMessages - historial", () => {
 
     expect(
       await screen.findByText("Mensaje válido"),
+    ).toBeTruthy();
+  });
+
+  it("no agrega al historial un mensaje de otra conversación", async () => {
+    listarMensajesVisitante.mockResolvedValue({
+      messages: [],
+      nextCursor: null,
+    });
+
+    enviarMensajeVisitante.mockResolvedValue({
+  success: true,
+  data: {
+    ...mensaje(50, "Respuesta de conversación equivocada"),
+    conversationId: 4,
+  },
+  creado: true,
+});
+
+    render(<ChatVisitorMessages conversationId={3} />);
+
+    expect(
+      await screen.findByText(
+        "Todavía no hay mensajes en esta conversación.",
+      ),
+    ).toBeTruthy();
+
+    fireEvent.change(
+      screen.getByLabelText("Escribe tu mensaje"),
+      {
+        target: { value: "Mensaje de otra conversación" },
+      },
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Enviar mensaje",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(enviarMensajeVisitante).toHaveBeenCalledTimes(1);
+    });
+
+    expect(enviarMensajeVisitante).toHaveBeenCalledWith(
+      3,
+      expect.objectContaining({
+        contenido: "Mensaje de otra conversación",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText("Escribe tu mensaje").value,
+      ).toBe("");
+    });
+
+    expect(
+  screen.queryByText("Respuesta de conversación equivocada"),
+).toBeNull();
+
+    expect(
+      screen.getByText(
+        "Todavía no hay mensajes en esta conversación.",
+      ),
     ).toBeTruthy();
   });
 });

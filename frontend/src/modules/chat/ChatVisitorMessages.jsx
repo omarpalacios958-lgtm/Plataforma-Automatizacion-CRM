@@ -1,7 +1,7 @@
-
 import { useEffect, useRef, useState } from "react";
 
 import { listarMensajesVisitante } from "../../services/chat-visitor.service.js";
+import ChatVisitorMessageForm from "./ChatVisitorMessageForm.jsx";
 
 const LIMITE_MENSAJES = 20;
 
@@ -120,6 +120,32 @@ function ChatVisitorMessages({ conversationId }) {
     }
   }
 
+  function agregarMensajeEnviado(mensaje) {
+    if (
+      !mensaje ||
+      Number(mensaje.conversationId) !== Number(conversationId)
+    ) {
+      return;
+    }
+
+    setMensajes((actuales) => {
+      if (actuales.some((existente) => existente.id === mensaje.id)) {
+        return actuales;
+      }
+
+      return [...actuales, mensaje];
+    });
+  }
+
+  setMensajes((actuales) => {
+    if (actuales.some((existente) => existente.id === mensaje.id)) {
+      return actuales;
+    }
+
+    return [...actuales, mensaje];
+  });
+}
+
   return (
     <section
       className="chat-visitor__messages"
@@ -191,6 +217,11 @@ function ChatVisitorMessages({ conversationId }) {
               ))}
             </ol>
           )}
+
+          <ChatVisitorMessageForm
+            conversationId={conversationId}
+            onMensajeEnviado={agregarMensajeEnviado}
+          />
         </>
       )}
     </section>
