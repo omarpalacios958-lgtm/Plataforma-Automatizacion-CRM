@@ -93,6 +93,14 @@ function Sidebar() {
                 </NavLink>
               </li>
             )}
+
+            {(esAdministrador || esVendedor) && (
+              <li>
+                <NavLink to="/chat/comercial">
+                  Bandeja comercial
+                </NavLink>
+              </li>
+            )}
           </ul>
         </section>
 

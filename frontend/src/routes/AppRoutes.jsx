@@ -15,6 +15,7 @@ import Files from "../modules/files/Files";
 import Users from "../modules/users/Users";
 import Automations from "../modules/automations/Automations";
 import ChatVisitor from "../modules/chat/ChatVisitor";
+import ChatCommercialInbox from "../modules/chat/ChatCommercialInbox";
 
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
@@ -41,9 +42,29 @@ function AppRoutes() {
             <Route path="/notificaciones" element={<Notifications />} />
             <Route path="/archivos" element={<Files />} />
 
-            <Route element={<RoleRoute rolesPermitidos={["Administrador"]} />}>
+            <Route
+              element={
+                <RoleRoute
+                  rolesPermitidos={["Administrador", "Vendedor"]}
+                />
+              }
+            >
+              <Route
+                path="/chat/comercial"
+                element={<ChatCommercialInbox />}
+              />
+            </Route>
+
+            <Route
+              element={
+                <RoleRoute rolesPermitidos={["Administrador"]} />
+              }
+            >
               <Route path="/usuarios" element={<Users />} />
-              <Route path="/automatizaciones" element={<Automations />} />
+              <Route
+                path="/automatizaciones"
+                element={<Automations />}
+              />
             </Route>
           </Route>
         </Route>
