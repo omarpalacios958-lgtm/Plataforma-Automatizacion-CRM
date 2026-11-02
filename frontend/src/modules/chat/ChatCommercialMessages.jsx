@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 
 import { listarMensajesComerciales } from "../../services/chat-commercial.service.js";
@@ -37,7 +36,10 @@ function formatearFecha(valor) {
     : fecha.toLocaleString();
 }
 
-function ChatCommercialMessages({ conversationId }) {
+function ChatCommercialMessages({
+  conversationId,
+  mensajesEnviados = [],
+}) {
   const [mensajes, setMensajes] = useState([]);
   const [cursor, setCursor] = useState(null);
   const [estado, setEstado] = useState("cargando");
@@ -48,6 +50,35 @@ function ChatCommercialMessages({ conversationId }) {
 
   const solicitudAnterioresRef = useRef(false);
   const versionRef = useRef(0);
+
+  const idsHistorial = new Set(
+    mensajes.map((mensaje) => mensaje.id),
+  );
+
+  const mensajesNuevos = mensajesEnviados.filter(
+    (mensaje) =>
+      Number(mensaje.conversationId) === Number(conversationId) &&
+      Number.isSafeInteger(mensaje.id) &&
+      mensaje.id > 0 &&
+      !idsHistorial.has(mensaje.id),
+  );
+
+  const mensajesVisibles = [...mensajes, ...mensajesNuevos].sort(
+    (a, b) => {
+      const fechaA = Date.parse(a.createdAt);
+      const fechaB = Date.parse(b.createdAt);
+
+      if (Number.isFinite(fechaA) && Number.isFinite(fechaB)) {
+        const diferencia = fechaA - fechaB;
+
+        if (diferencia !== 0) {
+          return diferencia;
+        }
+      }
+
+      return a.id - b.id;
+    },
+  );
 
   useEffect(() => {
     let activo = true;
@@ -214,13 +245,13 @@ function ChatCommercialMessages({ conversationId }) {
 
           {error && <p role="alert">{error}</p>}
 
-          {mensajes.length === 0 ? (
+          {mensajesVisibles.length === 0 ? (
             <p>
               Todavía no hay mensajes en esta conversación.
             </p>
           ) : (
             <ol className="chat-commercial-detail__messages">
-              {mensajes.map((mensaje) => (
+              {mensajesVisibles.map((mensaje) => (
                 <li
                   key={mensaje.id}
                   className="chat-commercial-detail__message"

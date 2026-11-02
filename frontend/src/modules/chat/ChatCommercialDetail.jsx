@@ -6,6 +6,7 @@ import ChatCommercialStatus from "./ChatCommercialStatus.jsx";
 import { obtenerConversacionComercial } from "../../services/chat-commercial.service.js";
 import ChatCommercialAssignment from "./ChatCommercialAssignment.jsx";
 import ChatCommercialMessages from "./ChatCommercialMessages.jsx";
+import ChatCommercialMessageForm from "./ChatCommercialMessageForm.jsx";
 
 import "./ChatCommercialDetail.css";
 
@@ -32,6 +33,7 @@ useEffect(() => {
   const [conversacion, setConversacion] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
+  const [mensajesEnviados, setMensajesEnviados] = useState([]);
 
   useEffect(() => {
     let vigente = true;
@@ -91,6 +93,33 @@ useEffect(() => {
     Number.isSafeInteger(Number(usuario.id)) &&
     Number(usuario.id) > 0 &&
     Number(usuario.id) === Number(conversacion.assignedAgentId);
+
+  const puedeResponder =
+    esAgenteAsignado &&
+    (conversacion?.estado === "ASIGNADA" ||
+      conversacion?.estado === "EN_CURSO");
+
+  const mensajesDeConversacion = mensajesEnviados.filter(
+    (mensaje) =>
+      String(mensaje.conversationId) === conversationId,
+  );
+
+  function manejarMensajeEnviado(mensaje) {
+    if (
+      String(mensaje?.conversationId) !==
+      conversationIdRef.current
+    ) {
+      return;
+    }
+
+    setMensajesEnviados((actuales) => {
+      if (actuales.some((actual) => actual.id === mensaje.id)) {
+        return actuales;
+      }
+
+      return [...actuales, mensaje];
+    });
+  }
 
   return (
     <section className="chat-commercial-detail">
@@ -289,7 +318,16 @@ useEffect(() => {
           <ChatCommercialMessages
             key={`${conversacion.id}-${conversacion.assignedAgentId ?? "sin-agente"}`}
             conversationId={conversacion.id}
+            mensajesEnviados={mensajesDeConversacion}
           />
+
+          {puedeResponder && (
+            <ChatCommercialMessageForm
+              key={`commercial-form-${conversacion.id}`}
+              conversationId={conversacion.id}
+              onMensajeEnviado={manejarMensajeEnviado}
+            />
+          )}
         </>
       )}
     </section>

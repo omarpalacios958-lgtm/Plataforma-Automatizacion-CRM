@@ -38,6 +38,35 @@ vi.mock("../src/context/useAuth.js", () => ({
   useAuth: vi.fn(),
 }));
 
+vi.mock("../src/modules/chat/ChatCommercialMessages.jsx", () => ({
+  default: ({ conversationId, mensajesEnviados = [] }) => (
+    <section aria-label="Historial comercial de prueba">
+      <span>Historial #{conversationId}</span>
+      {mensajesEnviados.map((mensaje) => (
+        <p key={mensaje.id}>{mensaje.contenido}</p>
+      ))}
+    </section>
+  ),
+}));
+
+vi.mock("../src/modules/chat/ChatCommercialMessageForm.jsx", () => ({
+  default: ({ conversationId, onMensajeEnviado }) => (
+    <button
+      type="button"
+      onClick={() =>
+        onMensajeEnviado({
+          id: 501,
+          conversationId,
+          contenido: "Respuesta comercial confirmada",
+        })
+      }
+    >
+      Simular respuesta comercial
+    </button>
+  ),
+}));
+
+
 const conversacion = {
   id: 24,
   tipo: "COMERCIAL",
@@ -97,6 +126,135 @@ beforeEach(() => {
 });
 
 describe("ChatCommercialDetail - detalle comercial", () => {
+
+it("permite responder al agente asignado en estado ASIGNADA", async () => {
+  obtenerConversacionComercial.mockResolvedValue({
+    ...conversacion,
+    estado: "ASIGNADA",
+    assignedAgentId: 5,
+  });
+
+  renderizarDetalle();
+
+  expect(
+    await screen.findByRole("button", {
+      name: "Simular respuesta comercial",
+    }),
+  ).toBeTruthy();
+});
+
+it("permite responder al agente asignado en estado EN_CURSO", async () => {
+  obtenerConversacionComercial.mockResolvedValue({
+    ...conversacion,
+    estado: "EN_CURSO",
+    assignedAgentId: 5,
+  });
+
+  renderizarDetalle();
+
+  expect(
+    await screen.findByRole("button", {
+      name: "Simular respuesta comercial",
+    }),
+  ).toBeTruthy();
+});
+
+it("no permite responder cuando la conversación está resuelta", async () => {
+  obtenerConversacionComercial.mockResolvedValue({
+    ...conversacion,
+    estado: "RESUELTA",
+    assignedAgentId: 5,
+  });
+
+  renderizarDetalle();
+
+  await screen.findByText("RESUELTA");
+
+  expect(
+    screen.queryByRole("button", {
+      name: "Simular respuesta comercial",
+    }),
+  ).toBeNull();
+});
+
+it("no permite responder a un agente diferente del asignado", async () => {
+  useAuth.mockReturnValue({
+    usuario: {
+      id: 8,
+      role: "Vendedor",
+    },
+  });
+
+  obtenerConversacionComercial.mockResolvedValue({
+    ...conversacion,
+    estado: "ASIGNADA",
+    assignedAgentId: 5,
+  });
+
+  renderizarDetalle();
+
+  await screen.findByText("Agente #5");
+
+  expect(
+    screen.queryByRole("button", {
+      name: "Simular respuesta comercial",
+    }),
+  ).toBeNull();
+});
+
+it("no permite responder a una conversación sin asignar", async () => {
+  renderizarDetalle();
+
+  await screen.findByText("Sin asignar");
+
+  expect(
+    screen.queryByRole("button", {
+      name: "Simular respuesta comercial",
+    }),
+  ).toBeNull();
+});
+
+it("incorpora una respuesta confirmada al historial", async () => {
+  obtenerConversacionComercial.mockResolvedValue({
+    ...conversacion,
+    estado: "EN_CURSO",
+    assignedAgentId: 5,
+  });
+
+  renderizarDetalle();
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Simular respuesta comercial",
+    }),
+  );
+
+  expect(
+    screen.getByText("Respuesta comercial confirmada"),
+  ).toBeTruthy();
+});
+
+it("no duplica respuestas confirmadas con el mismo identificador", async () => {
+  obtenerConversacionComercial.mockResolvedValue({
+    ...conversacion,
+    estado: "EN_CURSO",
+    assignedAgentId: 5,
+  });
+
+  renderizarDetalle();
+
+  const boton = await screen.findByRole("button", {
+    name: "Simular respuesta comercial",
+  });
+
+  fireEvent.click(boton);
+  fireEvent.click(boton);
+
+  expect(
+    screen.getAllByText("Respuesta comercial confirmada"),
+  ).toHaveLength(1);
+});
+
 
   it("muestra la acción de estado al agente asignado", async () => {
     obtenerConversacionComercial.mockResolvedValue({

@@ -57,6 +57,110 @@ beforeEach(() => {
 });
 
 describe("ChatCommercialMessages - historial comercial", () => {
+
+it("mantiene el orden cronológico de una respuesta recuperada", async () => {
+  const mensajeVisitante = {
+    ...mensaje(3, "Mensaje del visitante"),
+    createdAt: "2026-11-01T10:00:00.000Z",
+  };
+
+  const mensajePosterior = {
+    ...mensaje(5, "Mensaje posterior"),
+    createdAt: "2026-11-01T10:02:00.000Z",
+  };
+
+  const respuestaRecuperada = {
+    ...mensaje(4, "Respuesta recuperada"),
+    createdAt: "2026-11-01T10:01:00.000Z",
+  };
+
+  listarMensajesComerciales.mockResolvedValueOnce(
+    pagina([mensajePosterior, mensajeVisitante]),
+  );
+
+  render(
+    <ChatCommercialMessages
+      conversationId={3}
+      mensajesEnviados={[respuestaRecuperada]}
+    />,
+  );
+
+  await screen.findByText("Mensaje posterior");
+
+  const elementos = screen.getAllByRole("listitem");
+
+  expect(
+    elementos.map((elemento) => elemento.textContent),
+  ).toEqual([
+    expect.stringContaining("Mensaje del visitante"),
+    expect.stringContaining("Respuesta recuperada"),
+    expect.stringContaining("Mensaje posterior"),
+  ]);
+});
+
+
+it("muestra una respuesta enviada sin consultar nuevamente", async () => {
+  const vista = render(
+    <ChatCommercialMessages conversationId={3} />,
+  );
+
+  await screen.findByText("Mensaje reciente");
+
+  vista.rerender(
+    <ChatCommercialMessages
+      conversationId={3}
+      mensajesEnviados={[mensaje(4, "Respuesta del agente")]}
+    />,
+  );
+
+  expect(screen.getByText("Respuesta del agente")).toBeTruthy();
+  expect(screen.getAllByRole("listitem")).toHaveLength(2);
+  expect(listarMensajesComerciales).toHaveBeenCalledTimes(1);
+});
+
+it("no duplica un mensaje que ya existe en el historial", async () => {
+  render(
+    <ChatCommercialMessages
+      conversationId={3}
+      mensajesEnviados={[mensaje(3, "Mensaje reciente")]}
+    />,
+  );
+
+  await screen.findByText("Mensaje reciente");
+
+  expect(screen.getAllByRole("listitem")).toHaveLength(1);
+});
+
+it("conserva una respuesta enviada mientras termina la carga inicial", async () => {
+  let resolver;
+
+  listarMensajesComerciales.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolver = resolve;
+      }),
+  );
+
+  const vista = render(
+    <ChatCommercialMessages conversationId={3} />,
+  );
+
+  vista.rerender(
+    <ChatCommercialMessages
+      conversationId={3}
+      mensajesEnviados={[mensaje(4, "Respuesta confirmada")]}
+    />,
+  );
+
+  await act(async () => {
+    resolver(pagina([mensaje(3, "Mensaje anterior")]));
+  });
+
+  expect(screen.getByText("Mensaje anterior")).toBeTruthy();
+  expect(screen.getByText("Respuesta confirmada")).toBeTruthy();
+  expect(screen.getAllByRole("listitem")).toHaveLength(2);
+});
+
   it("consulta inicialmente los mensajes de la conversación", async () => {
     render(<ChatCommercialMessages conversationId={3} />);
 
