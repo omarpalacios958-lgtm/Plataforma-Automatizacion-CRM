@@ -16,6 +16,7 @@ import Users from "../modules/users/Users";
 import Automations from "../modules/automations/Automations";
 import ChatVisitor from "../modules/chat/ChatVisitor";
 import ChatCommercialInbox from "../modules/chat/ChatCommercialInbox";
+import ChatCommercialDetail from "../modules/chat/ChatCommercialDetail";
 
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
@@ -52,6 +53,10 @@ function AppRoutes() {
               <Route
                 path="/chat/comercial"
                 element={<ChatCommercialInbox />}
+              />
+              <Route
+                path="/chat/comercial/:conversationId"
+                element={<ChatCommercialDetail />}
               />
             </Route>
 

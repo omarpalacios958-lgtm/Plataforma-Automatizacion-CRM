@@ -1,4 +1,3 @@
-
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +8,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 import ChatCommercialInbox from "../src/modules/chat/ChatCommercialInbox.jsx";
 
@@ -36,6 +36,14 @@ function respuesta(conversations = [], nextCursor = null) {
   return { conversations, nextCursor };
 }
 
+function renderizarBandeja() {
+  return render(
+    <MemoryRouter>
+      <ChatCommercialInbox />
+    </MemoryRouter>,
+  );
+}
+
 afterEach(() => {
   cleanup();
 });
@@ -54,7 +62,7 @@ beforeEach(() => {
 
 describe("ChatCommercialInbox - bandeja comercial", () => {
   it("carga las conversaciones generales inicialmente", async () => {
-    render(<ChatCommercialInbox />);
+    renderizarBandeja();
 
     expect(
       screen.getByText("Cargando conversaciones..."),
@@ -70,7 +78,7 @@ describe("ChatCommercialInbox - bandeja comercial", () => {
   });
 
   it("permite consultar las conversaciones propias", async () => {
-    render(<ChatCommercialInbox />);
+    renderizarBandeja();
 
     await screen.findByText("Conversación #24");
 
@@ -92,7 +100,7 @@ describe("ChatCommercialInbox - bandeja comercial", () => {
   });
 
   it("filtra por estado permitido", async () => {
-    render(<ChatCommercialInbox />);
+    renderizarBandeja();
 
     await screen.findByText("Conversación #24");
 
@@ -115,7 +123,7 @@ describe("ChatCommercialInbox - bandeja comercial", () => {
         respuesta([{ ...conversacion, id: 23 }]),
       );
 
-    render(<ChatCommercialInbox />);
+    renderizarBandeja();
 
     await screen.findByText("Conversación #24");
 
@@ -141,7 +149,7 @@ describe("ChatCommercialInbox - bandeja comercial", () => {
       )
       .mockResolvedValueOnce(respuesta([conversacion], 24));
 
-    render(<ChatCommercialInbox />);
+    renderizarBandeja();
 
     await screen.findByText("Conversación #24");
 
@@ -165,7 +173,7 @@ describe("ChatCommercialInbox - bandeja comercial", () => {
       new Error("Acceso denegado"),
     );
 
-    render(<ChatCommercialInbox />);
+    renderizarBandeja();
 
     expect(
       (await screen.findByRole("alert")).textContent,
@@ -173,7 +181,7 @@ describe("ChatCommercialInbox - bandeja comercial", () => {
   });
 
   it("permite actualizar la bandeja", async () => {
-    render(<ChatCommercialInbox />);
+    renderizarBandeja();
 
     await screen.findByText("Conversación #24");
 
@@ -196,7 +204,7 @@ describe("ChatCommercialInbox - bandeja comercial", () => {
         }),
     );
 
-    render(<ChatCommercialInbox />);
+    renderizarBandeja();
 
     fireEvent.change(screen.getByLabelText("Bandeja"), {
       target: { value: "mias" },
