@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { obtenerConversacionComercial } from "../../services/chat-commercial.service.js";
+import ChatCommercialAssignment from "./ChatCommercialAssignment.jsx";
 import ChatCommercialMessages from "./ChatCommercialMessages.jsx";
 
 import "./ChatCommercialDetail.css";
@@ -18,6 +19,12 @@ function formatearFecha(valor) {
 
 function ChatCommercialDetail() {
   const { conversationId } = useParams();
+
+const conversationIdRef = useRef(conversationId);
+
+useEffect(() => {
+  conversationIdRef.current = conversationId;
+}, [conversationId]);
 
   const [conversacion, setConversacion] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -144,6 +151,52 @@ function ChatCommercialDetail() {
             </dl>
           </section>
 
+          <ChatCommercialAssignment
+            key={conversacion.id}
+            conversacion={conversacion}
+            onAsignada={(resultado) => {
+              if (
+                conversationIdRef.current !== String(resultado.id)
+              ) {
+                return;
+              }
+
+              setConversacion((actual) => {
+                if (!actual || actual.id !== resultado.id) {
+                  return actual;
+                }
+
+                return {
+                  ...actual,
+                  ...resultado,
+                };
+              });
+            }}
+            onConflicto={async (id) => {
+              const actualizada =
+                await obtenerConversacionComercial(id);
+
+              if (
+                !actualizada ||
+                actualizada.id !== id ||
+                actualizada.tipo !== "COMERCIAL" ||
+                !Array.isArray(actualizada.participants)
+              ) {
+                throw new Error(
+                  "No fue posible actualizar la conversación.",
+                );
+              }
+
+              if (conversationIdRef.current !== String(id)) {
+                return;
+              }
+
+              setConversacion((actual) =>
+                actual?.id === id ? actualizada : actual,
+              );
+            }}
+          />
+
           <section className="chat-commercial-detail__card">
             <h2>Visitantes activos</h2>
 
@@ -173,7 +226,7 @@ function ChatCommercialDetail() {
           </section>
 
           <ChatCommercialMessages
-            key={conversacion.id}
+            key={`${conversacion.id}-${conversacion.assignedAgentId ?? "sin-agente"}`}
             conversationId={conversacion.id}
           />
         </>

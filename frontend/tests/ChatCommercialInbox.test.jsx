@@ -61,6 +61,7 @@ beforeEach(() => {
 });
 
 describe("ChatCommercialInbox - bandeja comercial", () => {
+
   it("carga las conversaciones generales inicialmente", async () => {
     renderizarBandeja();
 
@@ -69,13 +70,29 @@ describe("ChatCommercialInbox - bandeja comercial", () => {
     ).toBeTruthy();
 
     expect(
-      await screen.findByText("Conversación #24"),
+      await screen.findByRole("link", {
+        name: /Conversaci.n #24/,
+      }),
     ).toBeTruthy();
 
-    expect(listarConversacionesComerciales).toHaveBeenCalledWith({
+    expect(
+      listarConversacionesComerciales,
+    ).toHaveBeenCalledWith({
       limit: 20,
     });
   });
+  it("permite acceder al detalle desde el enlace de la conversación", async () => {
+    renderizarBandeja();
+
+    const enlace = await screen.findByRole("link", {
+      name: /Conversaci.n #24/,
+    });
+
+    expect(enlace.getAttribute("href")).toBe(
+      "/chat/comercial/24",
+    );
+  });
+
 
   it("permite consultar las conversaciones propias", async () => {
     renderizarBandeja();

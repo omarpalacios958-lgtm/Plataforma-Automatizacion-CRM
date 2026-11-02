@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   listarConversacionesComerciales,
   listarMisConversacionesComerciales,
@@ -175,9 +176,14 @@ function ChatCommercialInbox() {
               {conversaciones.map((conversacion) => (
                 <tr key={conversacion.id}>
                   <td>
-                    {conversacion.nombre ||
-                      `Conversación #${conversacion.id}`}
-                  </td>
+  <Link
+    className="chat-commercial__conversation-link"
+    to={`/chat/comercial/${conversacion.id}`}
+  >
+    {conversacion.nombre ||
+      `Conversación #${conversacion.id}`}
+  </Link>
+</td>
                   <td>{conversacion.estado}</td>
                   <td>
                     {conversacion.assignedAgentId === null
