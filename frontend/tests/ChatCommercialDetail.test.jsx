@@ -28,9 +28,14 @@ import {
 import ChatCommercialDetail from "../src/modules/chat/ChatCommercialDetail.jsx";
 
 import { obtenerConversacionComercial } from "../src/services/chat-commercial.service.js";
+import { useAuth } from "../src/context/useAuth.js";
 
 vi.mock("../src/services/chat-commercial.service.js", () => ({
   obtenerConversacionComercial: vi.fn(),
+}));
+
+vi.mock("../src/context/useAuth.js", () => ({
+  useAuth: vi.fn(),
 }));
 
 const conversacion = {
@@ -77,12 +82,93 @@ afterEach(() => {
 beforeEach(() => {
   vi.clearAllMocks();
 
+  useAuth.mockReturnValue({
+    usuario: {
+      id: 5,
+      nombre: "Agente",
+      apellido: "Prueba",
+      role: "Vendedor",
+    },
+  });
+
   obtenerConversacionComercial.mockResolvedValue(
     conversacion,
   );
 });
 
 describe("ChatCommercialDetail - detalle comercial", () => {
+
+  it("muestra la acción de estado al agente asignado", async () => {
+    obtenerConversacionComercial.mockResolvedValue({
+      ...conversacion,
+      estado: "ASIGNADA",
+      assignedAgentId: 5,
+    });
+
+    renderizarDetalle();
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Iniciar atención",
+      }),
+    ).toBeTruthy();
+  });
+
+  it("oculta la acción de estado a otro agente", async () => {
+    useAuth.mockReturnValue({
+      usuario: {
+        id: 8,
+        nombre: "Otro",
+        apellido: "Agente",
+        role: "Vendedor",
+      },
+    });
+
+    obtenerConversacionComercial.mockResolvedValue({
+      ...conversacion,
+      estado: "ASIGNADA",
+      assignedAgentId: 5,
+    });
+
+    renderizarDetalle();
+
+    expect(
+      await screen.findByText("Agente #5"),
+    ).toBeTruthy();
+
+    expect(
+      screen.queryByRole("button", {
+        name: "Iniciar atención",
+      }),
+    ).toBeNull();
+  });
+
+  it("no muestra acciones de estado en conversaciones resueltas", async () => {
+    obtenerConversacionComercial.mockResolvedValue({
+      ...conversacion,
+      estado: "RESUELTA",
+      assignedAgentId: 5,
+    });
+
+    renderizarDetalle();
+
+    expect(
+      await screen.findByText("RESUELTA"),
+    ).toBeTruthy();
+
+    expect(
+      screen.queryByRole("button", {
+        name: "Iniciar atención",
+      }),
+    ).toBeNull();
+
+    expect(
+      screen.queryByRole("button", {
+        name: "Resolver conversación",
+      }),
+    ).toBeNull();
+  });
+
   it("consulta la conversación indicada en la URL", async () => {
     renderizarDetalle();
 
