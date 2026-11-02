@@ -137,15 +137,6 @@ function ChatVisitorMessages({ conversationId }) {
     });
   }
 
-  setMensajes((actuales) => {
-    if (actuales.some((existente) => existente.id === mensaje.id)) {
-      return actuales;
-    }
-
-    return [...actuales, mensaje];
-  });
-}
-
   return (
     <section
       className="chat-visitor__messages"

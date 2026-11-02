@@ -93,7 +93,6 @@ it("ignora una respuesta recibida después de desmontar el formulario", async ()
   expect(onMensajeEnviado).not.toHaveBeenCalled();
 });
 
-
   it("no permite enviar contenido vacío", () => {
     const { boton } = prepararFormulario();
 
