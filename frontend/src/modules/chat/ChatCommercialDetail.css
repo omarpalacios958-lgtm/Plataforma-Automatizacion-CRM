@@ -85,3 +85,54 @@
     padding: 16px;
   }
 }
+
+.chat-commercial-detail__button {
+  padding: 10px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #334155;
+  cursor: pointer;
+}
+
+.chat-commercial-detail__button:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.chat-commercial-detail__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.chat-commercial-detail__messages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-commercial-detail__message {
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.chat-commercial-detail__message p {
+  margin: 10px 0;
+  white-space: pre-wrap;
+}
+
+.chat-commercial-detail__sender {
+  font-weight: 600;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.chat-commercial-detail__message time {
+  color: #64748b;
+  font-size: 0.8rem;
+}

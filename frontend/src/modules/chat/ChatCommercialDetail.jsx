@@ -1,8 +1,8 @@
-
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { obtenerConversacionComercial } from "../../services/chat-commercial.service.js";
+import ChatCommercialMessages from "./ChatCommercialMessages.jsx";
 
 import "./ChatCommercialDetail.css";
 
@@ -171,6 +171,11 @@ function ChatCommercialDetail() {
               </ul>
             )}
           </section>
+
+          <ChatCommercialMessages
+            key={conversacion.id}
+            conversationId={conversacion.id}
+          />
         </>
       )}
     </section>
