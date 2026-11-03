@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
@@ -7,6 +6,8 @@ import {
   listarConversacionesInternas,
   obtenerMensajesInternos,
 } from "../../services/chat-internal.service.js";
+
+import useInternalMessagePolling from "./useInternalMessagePolling.js";
 
 import "./ChatInternalDetail.css";
 
@@ -99,6 +100,7 @@ function ChatInternalDetail() {
   const [conversacion, setConversacion] = useState(null);
   const [mensajes, setMensajes] = useState([]);
   const [cursor, setCursor] = useState(null);
+  const [ultimoIdInicial, setUltimoIdInicial] = useState(0);
   const [estado, setEstado] = useState("cargando");
   const [error, setError] = useState("");
   const [errorAnteriores, setErrorAnteriores] = useState("");
@@ -136,6 +138,7 @@ function ChatInternalDetail() {
       setConversacion(null);
       setMensajes([]);
       setCursor(null);
+      setUltimoIdInicial(0);
       setCargandoAnteriores(false);
 
       setContenido("");
@@ -192,6 +195,12 @@ function ChatInternalDetail() {
 
         setConversacion(encontrada);
         setMensajes(unirMensajes([], pagina.messages));
+        setUltimoIdInicial(
+          pagina.messages.reduce(
+            (mayor, mensaje) => Math.max(mayor, mensaje.id),
+            0,
+          ),
+        );
         setCursor(pagina.nextCursor);
         setEstado("disponible");
       } catch (err) {
@@ -373,6 +382,21 @@ function ChatInternalDetail() {
       }
     }
   }
+
+
+useInternalMessagePolling({
+  conversationId,
+  activo:
+    estado === "disponible" &&
+    conversacion?.id === conversationId,
+  initialMessageId: ultimoIdInicial,
+  onMessages: (nuevos) => {
+    setMensajes((actuales) =>
+      unirMensajes(actuales, nuevos),
+    );
+  },
+});
+
 
   const participantes = conversacion?.participants || [];
 
