@@ -64,6 +64,46 @@ function validarOpcionesMensajes(conversationId, opciones) {
   return parametros.toString();
 }
 
+function validarEnvioMensaje(conversationId, datos) {
+  if (!esEnteroSeguro(conversationId)) {
+    throw new Error("El ID de conversación debe ser un entero positivo.");
+  }
+
+  if (
+    !datos ||
+    typeof datos !== "object" ||
+    Array.isArray(datos)
+  ) {
+    throw new Error("Los datos del mensaje no son válidos.");
+  }
+
+  const { contenido, clientMessageId } = datos;
+
+  if (
+    typeof contenido !== "string" ||
+    !contenido.trim() ||
+    contenido.length > 10000
+  ) {
+    throw new Error(
+      "El contenido debe tener entre 1 y 10000 caracteres.",
+    );
+  }
+
+  if (
+    typeof clientMessageId !== "string" ||
+    !/^[A-Za-z0-9_-]{8,128}$/.test(clientMessageId)
+  ) {
+    throw new Error(
+      "clientMessageId debe tener entre 8 y 128 caracteres alfanuméricos, guion o guion bajo.",
+    );
+  }
+
+  return {
+    contenido: contenido.trim(),
+    clientMessageId,
+  };
+}
+
 async function listarEmpleadosDisponibles() {
   const response = await apiRequest(
     `${INTERNAL_BASE_PATH}/employees`,
@@ -99,8 +139,21 @@ async function obtenerMensajesInternos(
   return response.data;
 }
 
+async function enviarMensajeInterno(conversationId, datos) {
+  const body = validarEnvioMensaje(conversationId, datos);
+
+  return apiRequest(
+    `${INTERNAL_BASE_PATH}/conversations/${conversationId}/messages`,
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+  );
+}
+
 export {
   listarEmpleadosDisponibles,
   listarConversacionesInternas,
   obtenerMensajesInternos,
+  enviarMensajeInterno,
 };
