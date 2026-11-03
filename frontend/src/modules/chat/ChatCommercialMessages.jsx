@@ -1,10 +1,12 @@
+
 import { useEffect, useRef, useState } from "react";
 
 import { listarMensajesComerciales } from "../../services/chat-commercial.service.js";
 
 const LIMITE_MENSAJES = 20;
+const INTERVALO_ACTUALIZACION = 5000;
 
-function validarPagina(data) {
+function validarPagina(data, conversationId) {
   if (
     !data ||
     !Array.isArray(data.messages) ||
@@ -13,7 +15,6 @@ function validarPagina(data) {
         Number.isSafeInteger(mensaje?.id) &&
         mensaje.id > 0 &&
         Number.isSafeInteger(mensaje.conversationId) &&
-        mensaje.conversationId > 0 &&
         typeof mensaje.contenido === "string",
     ) ||
     (data.nextCursor !== null &&
@@ -21,6 +22,17 @@ function validarPagina(data) {
         data.nextCursor <= 0))
   ) {
     throw new Error("Respuesta de mensajes comerciales inválida.");
+  }
+
+  if (
+    data.messages.some(
+      (mensaje) =>
+        mensaje.conversationId !== Number(conversationId),
+    )
+  ) {
+    throw new Error(
+      "Los mensajes no pertenecen a la conversación.",
+    );
   }
 
   return data;
@@ -34,6 +46,33 @@ function formatearFecha(valor) {
   return Number.isNaN(fecha.getTime())
     ? null
     : fecha.toLocaleString();
+}
+
+function ordenarMensajes(mensajes) {
+  return [...mensajes].sort((a, b) => {
+    const fechaA = Date.parse(a.createdAt);
+    const fechaB = Date.parse(b.createdAt);
+
+    if (Number.isFinite(fechaA) && Number.isFinite(fechaB)) {
+      const diferencia = fechaA - fechaB;
+
+      if (diferencia !== 0) return diferencia;
+    }
+
+    return a.id - b.id;
+  });
+}
+
+function unirMensajes(actuales, nuevos) {
+  const porId = new Map(
+    actuales.map((mensaje) => [mensaje.id, mensaje]),
+  );
+
+  for (const mensaje of nuevos) {
+    porId.set(mensaje.id, mensaje);
+  }
+
+  return ordenarMensajes([...porId.values()]);
 }
 
 function ChatCommercialMessages({
@@ -51,40 +90,33 @@ function ChatCommercialMessages({
   const solicitudAnterioresRef = useRef(false);
   const versionRef = useRef(0);
 
-  const idsHistorial = new Set(
-    mensajes.map((mensaje) => mensaje.id),
-  );
-
-  const mensajesNuevos = mensajesEnviados.filter(
+  const mensajesConfirmados = mensajesEnviados.filter(
     (mensaje) =>
-      Number(mensaje.conversationId) === Number(conversationId) &&
+      Number(mensaje?.conversationId) ===
+        Number(conversationId) &&
       Number.isSafeInteger(mensaje.id) &&
-      mensaje.id > 0 &&
-      !idsHistorial.has(mensaje.id),
+      mensaje.id > 0,
   );
 
-  const mensajesVisibles = [...mensajes, ...mensajesNuevos].sort(
-    (a, b) => {
-      const fechaA = Date.parse(a.createdAt);
-      const fechaB = Date.parse(b.createdAt);
-
-      if (Number.isFinite(fechaA) && Number.isFinite(fechaB)) {
-        const diferencia = fechaA - fechaB;
-
-        if (diferencia !== 0) {
-          return diferencia;
-        }
-      }
-
-      return a.id - b.id;
-    },
+  const mensajesVisibles = unirMensajes(
+    mensajesConfirmados,
+    mensajes,
   );
 
   useEffect(() => {
     let activo = true;
+    let cargaInicialCompletada = false;
+    let actualizando = false;
+    let ultimoIdConfirmado = 0;
 
     versionRef.current += 1;
     solicitudAnterioresRef.current = false;
+
+    const version = versionRef.current;
+
+    function solicitudVigente() {
+      return activo && version === versionRef.current;
+    }
 
     async function cargarMensajes() {
       setEstado("cargando");
@@ -98,27 +130,22 @@ function ChatCommercialMessages({
           await listarMensajesComerciales(conversationId, {
             limit: LIMITE_MENSAJES,
           }),
+          conversationId,
         );
 
-        if (!activo) return;
+        if (!solicitudVigente()) return;
 
-        const mensajesValidos = data.messages.filter(
-          (mensaje) =>
-            Number(mensaje.conversationId) ===
-            Number(conversationId),
+        ultimoIdConfirmado = data.messages.reduce(
+          (maximo, mensaje) => Math.max(maximo, mensaje.id),
+          0,
         );
 
-        if (mensajesValidos.length !== data.messages.length) {
-          throw new Error(
-            "Los mensajes no pertenecen a la conversación.",
-          );
-        }
-
-        setMensajes([...mensajesValidos].reverse());
+        setMensajes(ordenarMensajes(data.messages));
         setCursor(data.nextCursor);
         setEstado("disponible");
+        cargaInicialCompletada = true;
       } catch (err) {
-        if (!activo) return;
+        if (!solicitudVigente()) return;
 
         setError(
           err.message ||
@@ -128,11 +155,86 @@ function ChatCommercialMessages({
       }
     }
 
-    cargarMensajes();
+    async function actualizarMensajes() {
+      if (
+        !solicitudVigente() ||
+        !cargaInicialCompletada ||
+        actualizando
+      ) {
+        return;
+      }
+
+      actualizando = true;
+
+      try {
+        let afterId = ultimoIdConfirmado;
+        let hayMas = true;
+
+        while (hayMas && solicitudVigente()) {
+          const data = validarPagina(
+            await listarMensajesComerciales(conversationId, {
+              limit: LIMITE_MENSAJES,
+              afterId,
+            }),
+            conversationId,
+          );
+
+          if (!solicitudVigente()) return;
+
+          if (data.messages.length === 0) {
+            if (data.nextCursor !== null) {
+              throw new Error(
+                "Paginación incremental inválida.",
+              );
+            }
+
+            break;
+          }
+
+          const ultimoIdPagina = data.messages.reduce(
+            (maximo, mensaje) => Math.max(maximo, mensaje.id),
+            afterId,
+          );
+
+          if (
+            data.messages.some(
+              (mensaje) => mensaje.id <= afterId,
+            ) ||
+            ultimoIdPagina <= afterId
+          ) {
+            throw new Error(
+              "La paginación incremental no avanzó.",
+            );
+          }
+
+          afterId = ultimoIdPagina;
+          ultimoIdConfirmado = ultimoIdPagina;
+
+          setMensajes((actuales) =>
+            unirMensajes(actuales, data.messages),
+          );
+
+          hayMas = data.nextCursor !== null;
+        }
+      } catch {
+        // Conserva los mensajes visibles ante errores temporales.
+        // El siguiente intervalo reintenta desde el último ID
+        // confirmado correctamente.
+      } finally {
+        actualizando = false;
+      }
+    }
+
+    void cargarMensajes();
+
+    const intervalo = setInterval(() => {
+      void actualizarMensajes();
+    }, INTERVALO_ACTUALIZACION);
 
     return () => {
       activo = false;
       versionRef.current += 1;
+      clearInterval(intervalo);
     };
   }, [conversationId, intento]);
 
@@ -157,33 +259,14 @@ function ChatCommercialMessages({
           limit: LIMITE_MENSAJES,
           cursor,
         }),
+        conversationId,
       );
 
       if (version !== versionRef.current) return;
 
-      if (
-        data.messages.some(
-          (mensaje) =>
-            Number(mensaje.conversationId) !==
-            Number(conversationId),
-        )
-      ) {
-        throw new Error(
-          "Los mensajes no pertenecen a la conversación.",
-        );
-      }
-
-      setMensajes((actuales) => {
-        const ids = new Set(
-          actuales.map((mensaje) => mensaje.id),
-        );
-
-        const anteriores = [...data.messages]
-          .reverse()
-          .filter((mensaje) => !ids.has(mensaje.id));
-
-        return [...anteriores, ...actuales];
-      });
+      setMensajes((actuales) =>
+        unirMensajes(actuales, data.messages),
+      );
 
       setCursor(data.nextCursor);
     } catch (err) {
