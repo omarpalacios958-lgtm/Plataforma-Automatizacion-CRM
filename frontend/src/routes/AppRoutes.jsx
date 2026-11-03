@@ -17,6 +17,7 @@ import Automations from "../modules/automations/Automations";
 import ChatVisitor from "../modules/chat/ChatVisitor";
 import ChatCommercialInbox from "../modules/chat/ChatCommercialInbox";
 import ChatCommercialDetail from "../modules/chat/ChatCommercialDetail";
+import ChatInternalInbox from "../modules/chat/ChatInternalInbox";
 
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
@@ -32,7 +33,11 @@ function AppRoutes() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
         <Route element={<ProtectedRoute />}>
-          <Route element={<MainLayout />}>
+  <Route element={<MainLayout />}>
+    <Route
+      path="/chat/interno"
+      element={<ChatInternalInbox />}
+    />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/contactos" element={<Contacts />} />
             <Route path="/empresas" element={<Companies />} />

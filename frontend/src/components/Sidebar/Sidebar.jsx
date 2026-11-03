@@ -83,6 +83,12 @@ function Sidebar() {
                     Notificaciones
                   </NavLink>
                 </li>
+
+                <li>
+                  <NavLink to="/chat/interno">
+                    Chat interno
+                  </NavLink>
+                </li>
               </>
             )}
 
