@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
+  enviarMensajeInterno,
   listarConversacionesInternas,
   obtenerMensajesInternos,
 } from "../../services/chat-internal.service.js";
@@ -10,19 +11,26 @@ import {
 import "./ChatInternalDetail.css";
 
 const LIMITE_MENSAJES = 20;
+const MAX_CONTENIDO = 10000;
+
+function validarMensaje(mensaje, conversationId) {
+  return (
+    mensaje &&
+    Number.isSafeInteger(mensaje.id) &&
+    mensaje.id > 0 &&
+    mensaje.conversationId === conversationId &&
+    Number.isSafeInteger(mensaje.participantId) &&
+    mensaje.participantId > 0 &&
+    typeof mensaje.contenido === "string"
+  );
+}
 
 function validarPagina(data, conversationId) {
   if (
     !data ||
     !Array.isArray(data.messages) ||
-    !data.messages.every(
-      (mensaje) =>
-        Number.isSafeInteger(mensaje?.id) &&
-        mensaje.id > 0 &&
-        mensaje.conversationId === conversationId &&
-        Number.isSafeInteger(mensaje.participantId) &&
-        mensaje.participantId > 0 &&
-        typeof mensaje.contenido === "string",
+    !data.messages.every((mensaje) =>
+      validarMensaje(mensaje, conversationId),
     ) ||
     (data.nextCursor !== null &&
       (!Number.isSafeInteger(data.nextCursor) ||
@@ -94,11 +102,18 @@ function ChatInternalDetail() {
   const [estado, setEstado] = useState("cargando");
   const [error, setError] = useState("");
   const [errorAnteriores, setErrorAnteriores] = useState("");
-  const [cargandoAnteriores, setCargandoAnteriores] = useState(false);
+  const [cargandoAnteriores, setCargandoAnteriores] =
+    useState(false);
   const [intento, setIntento] = useState(0);
+
+  const [contenido, setContenido] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [errorEnvio, setErrorEnvio] = useState("");
 
   const versionRef = useRef(0);
   const solicitudAnterioresRef = useRef(false);
+  const solicitudEnvioRef = useRef(false);
+  const envioPendienteRef = useRef(null);
 
   useEffect(() => {
     let vigente = true;
@@ -107,6 +122,8 @@ function ChatInternalDetail() {
     const version = versionRef.current;
 
     solicitudAnterioresRef.current = false;
+    solicitudEnvioRef.current = false;
+    envioPendienteRef.current = null;
 
     function solicitudVigente() {
       return vigente && versionRef.current === version;
@@ -120,6 +137,10 @@ function ChatInternalDetail() {
       setMensajes([]);
       setCursor(null);
       setCargandoAnteriores(false);
+
+      setContenido("");
+      setEnviando(false);
+      setErrorEnvio("");
 
       if (
         !/^[1-9]\d*$/.test(parametroId) ||
@@ -135,7 +156,10 @@ function ChatInternalDetail() {
 
         if (!solicitudVigente()) return;
 
-        if (!resultado || !Array.isArray(resultado.conversations)) {
+        if (
+          !resultado ||
+          !Array.isArray(resultado.conversations)
+        ) {
           throw new Error(
             "Respuesta de conversaciones internas no válida.",
           );
@@ -152,7 +176,9 @@ function ChatInternalDetail() {
           ) ||
           !Array.isArray(encontrada.participants)
         ) {
-          throw new Error("Conversación interna no encontrada.");
+          throw new Error(
+            "Conversación interna no encontrada.",
+          );
         }
 
         const pagina = validarPagina(
@@ -221,9 +247,13 @@ function ChatInternalDetail() {
       }
 
       if (
-        pagina.messages.some((mensaje) => mensaje.id >= cursor)
+        pagina.messages.some(
+          (mensaje) => mensaje.id >= cursor,
+        )
       ) {
-        throw new Error("La paginación no avanzó correctamente.");
+        throw new Error(
+          "La paginación no avanzó correctamente.",
+        );
       }
 
       setMensajes((actuales) =>
@@ -245,6 +275,105 @@ function ChatInternalDetail() {
     }
   }
 
+  function cambiarContenido(evento) {
+    const nuevoContenido = evento.target.value;
+
+    setContenido(nuevoContenido);
+    setErrorEnvio("");
+
+    if (
+      envioPendienteRef.current &&
+      envioPendienteRef.current.contenido !==
+        nuevoContenido.trim()
+    ) {
+      envioPendienteRef.current = null;
+    }
+  }
+
+  async function enviarMensaje(evento) {
+    evento.preventDefault();
+
+    if (
+      solicitudEnvioRef.current ||
+      estado !== "disponible"
+    ) {
+      return;
+    }
+
+    const texto = contenido.trim();
+
+    if (!texto || contenido.length > MAX_CONTENIDO) {
+      setErrorEnvio(
+        "El contenido debe tener entre 1 y 10000 caracteres.",
+      );
+      return;
+    }
+
+    let datos = envioPendienteRef.current;
+
+    if (!datos || datos.contenido !== texto) {
+      try {
+        datos = {
+          contenido: texto,
+          clientMessageId: crypto.randomUUID(),
+        };
+      } catch {
+        setErrorEnvio(
+          "No fue posible generar el identificador del mensaje.",
+        );
+        return;
+      }
+
+      envioPendienteRef.current = datos;
+    }
+
+    solicitudEnvioRef.current = true;
+    setEnviando(true);
+    setErrorEnvio("");
+
+    const version = versionRef.current;
+
+    try {
+      const respuesta = await enviarMensajeInterno(
+        conversationId,
+        datos,
+      );
+
+      if (versionRef.current !== version) return;
+
+      if (
+        !respuesta?.success ||
+        !validarMensaje(respuesta.data, conversationId) ||
+        respuesta.data.clientMessageId !==
+          datos.clientMessageId ||
+        respuesta.data.contenido !== datos.contenido
+      ) {
+        throw new Error(
+          "Respuesta de envío de mensaje no válida.",
+        );
+      }
+
+      setMensajes((actuales) =>
+        unirMensajes(actuales, [respuesta.data]),
+      );
+
+      envioPendienteRef.current = null;
+      setContenido("");
+      setErrorEnvio("");
+    } catch (err) {
+      if (versionRef.current !== version) return;
+
+      setErrorEnvio(
+        err.message || "No fue posible enviar el mensaje.",
+      );
+    } finally {
+      if (versionRef.current === version) {
+        solicitudEnvioRef.current = false;
+        setEnviando(false);
+      }
+    }
+  }
+
   const participantes = conversacion?.participants || [];
 
   const participantesPorId = new Map(
@@ -262,7 +391,9 @@ function ChatInternalDetail() {
       </header>
 
       {estado === "cargando" && (
-        <p role="status">Cargando conversación interna...</p>
+        <p role="status">
+          Cargando conversación interna...
+        </p>
       )}
 
       {estado === "error" && (
@@ -270,7 +401,9 @@ function ChatInternalDetail() {
           <p>{error}</p>
           <button
             type="button"
-            onClick={() => setIntento((actual) => actual + 1)}
+            onClick={() =>
+              setIntento((actual) => actual + 1)
+            }
           >
             Reintentar
           </button>
@@ -332,9 +465,10 @@ function ChatInternalDetail() {
             ) : (
               <ol className="chat-internal-detail__messages">
                 {mensajes.map((mensaje) => {
-                  const participante = participantesPorId.get(
-                    mensaje.participantId,
-                  );
+                  const participante =
+                    participantesPorId.get(
+                      mensaje.participantId,
+                    );
 
                   return (
                     <li
@@ -354,13 +488,59 @@ function ChatInternalDetail() {
                       </p>
 
                       <time dateTime={mensaje.createdAt}>
-                        {formatearFecha(mensaje.createdAt)}
+                        {formatearFecha(
+                          mensaje.createdAt,
+                        )}
                       </time>
                     </li>
                   );
                 })}
               </ol>
             )}
+          </section>
+
+          <section className="chat-internal-detail__card">
+            <h2>Enviar mensaje</h2>
+
+            <form
+              className="chat-internal-detail__form"
+              onSubmit={enviarMensaje}
+            >
+              <label htmlFor="chat-internal-content">
+                Mensaje
+              </label>
+
+              <textarea
+                id="chat-internal-content"
+                value={contenido}
+                onChange={cambiarContenido}
+                maxLength={MAX_CONTENIDO}
+                rows={4}
+                disabled={enviando}
+                placeholder="Escribe tu mensaje..."
+              />
+
+              <p className="chat-internal-detail__counter">
+                {contenido.length} / {MAX_CONTENIDO}
+              </p>
+
+              {errorEnvio && (
+                <p role="alert">{errorEnvio}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={
+                  enviando ||
+                  !contenido.trim() ||
+                  contenido.length > MAX_CONTENIDO
+                }
+              >
+                {enviando
+                  ? "Enviando..."
+                  : "Enviar mensaje"}
+              </button>
+            </form>
           </section>
         </>
       )}
