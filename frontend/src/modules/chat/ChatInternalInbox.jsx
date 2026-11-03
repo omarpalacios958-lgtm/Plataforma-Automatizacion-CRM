@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { listarConversacionesInternas } from "../../services/chat-internal.service.js";
 import "./ChatInternalInbox.css";
+import { Link } from "react-router-dom";
 
 function nombreEmpleado(participante) {
   const nombre = [
@@ -119,11 +120,17 @@ function ChatInternalInbox() {
                 <th>Participantes</th>
                 <th>Estado</th>
                 <th>Actualización</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {conversaciones.map((conversacion) => (
                 <tr key={conversacion.id}>
+                  <td>
+                    <Link to={`/chat/interno/${conversacion.id}`}>
+                      Ver mensajes
+                    </Link>
+                   </td>
                   <td>{nombreConversacion(conversacion)}</td>
                   <td>
                     {conversacion.tipo === "INTERNO_PRIVADO"

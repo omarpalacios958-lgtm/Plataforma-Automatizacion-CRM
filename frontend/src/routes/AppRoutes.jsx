@@ -18,6 +18,7 @@ import ChatVisitor from "../modules/chat/ChatVisitor";
 import ChatCommercialInbox from "../modules/chat/ChatCommercialInbox";
 import ChatCommercialDetail from "../modules/chat/ChatCommercialDetail";
 import ChatInternalInbox from "../modules/chat/ChatInternalInbox";
+import ChatInternalDetail from "../modules/chat/ChatInternalDetail";
 
 import ProtectedRoute from "./ProtectedRoute";
 import RoleRoute from "./RoleRoute";
@@ -34,6 +35,10 @@ function AppRoutes() {
 
         <Route element={<ProtectedRoute />}>
   <Route element={<MainLayout />}>
+  <Route
+  path="/chat/interno/:conversationId"
+  element={<ChatInternalDetail />}
+/>
     <Route
       path="/chat/interno"
       element={<ChatInternalInbox />}

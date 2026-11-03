@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 vi.mock("../src/services/chat-internal.service.js", () => ({
   listarConversacionesInternas: vi.fn(),
@@ -8,6 +9,14 @@ vi.mock("../src/services/chat-internal.service.js", () => ({
 
 import { listarConversacionesInternas } from "../src/services/chat-internal.service.js";
 import ChatInternalInbox from "../src/modules/chat/ChatInternalInbox.jsx";
+
+function renderizarBandeja() {
+  return render(
+    <MemoryRouter>
+      <ChatInternalInbox />
+    </MemoryRouter>,
+  );
+}
 
 afterEach(() => {
   cleanup();
@@ -52,7 +61,7 @@ describe("CH-05.3.1 - Bandeja de chat interno", () => {
       ],
     });
 
-    render(<ChatInternalInbox />);
+    renderizarBandeja();
 
     expect(
       screen.getByRole("status"),
@@ -75,7 +84,7 @@ describe("CH-05.3.1 - Bandeja de chat interno", () => {
       conversations: [],
     });
 
-    render(<ChatInternalInbox />);
+    renderizarBandeja();
 
     expect(
       await screen.findByText(
@@ -89,7 +98,7 @@ describe("CH-05.3.1 - Bandeja de chat interno", () => {
       new Error("Acceso denegado."),
     );
 
-    render(<ChatInternalInbox />);
+    renderizarBandeja();
 
     await waitFor(() => {
       expect(
@@ -103,7 +112,7 @@ describe("CH-05.3.1 - Bandeja de chat interno", () => {
       conversations: null,
     });
 
-    render(<ChatInternalInbox />);
+    renderizarBandeja();
 
     expect(
       await screen.findByRole("alert"),
@@ -111,5 +120,28 @@ describe("CH-05.3.1 - Bandeja de chat interno", () => {
       "textContent",
       "Respuesta de conversaciones internas no válida.",
     );
+  });
+
+  it("permite navegar al detalle de una conversación", async () => {
+    listarConversacionesInternas.mockResolvedValue({
+      conversations: [
+        {
+          id: 2,
+          tipo: "INTERNO_GRUPAL",
+          estado: "EN_CURSO",
+          nombre: "Equipo comercial CRM",
+          updatedAt: "2026-10-27T22:10:17.611Z",
+          participants: [],
+        },
+      ],
+    });
+
+    renderizarBandeja();
+
+    const enlace = await screen.findByRole("link", {
+      name: "Ver mensajes",
+    });
+
+    expect(enlace.getAttribute("href")).toBe("/chat/interno/2");
   });
 });
