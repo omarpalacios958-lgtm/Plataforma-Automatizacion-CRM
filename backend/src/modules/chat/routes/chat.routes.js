@@ -7,6 +7,17 @@ const commercialRoutes = require('./commercial.routes');
 const router = express.Router();
 router.use('/visitors', visitorRoutes);
 router.use('/commercial', commercialRoutes);
+router.get(
+  '/employees',
+  authMiddleware,
+  (req, res, next) => chatController.listarEmpleadosDisponibles(req, res, next)
+);
+
+router.get(
+  '/conversations',
+  authMiddleware,
+  (req, res, next) => chatController.listarConversacionesInternas(req, res, next)
+);
 router.post('/groups', authMiddleware, (req, res, next) => chatController.crearGrupo(req, res, next));
 router.get('/groups/:conversationId/participants', authMiddleware,
   (req, res, next) => chatController.obtenerParticipantesGrupo(req, res, next));

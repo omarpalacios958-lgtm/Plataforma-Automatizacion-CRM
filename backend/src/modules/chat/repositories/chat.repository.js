@@ -13,6 +13,73 @@ const conversationInclude = {
 };
 
 class ChatRepository {
+  async listarEmpleadosDisponibles(usuarioId) {
+    return prisma.user.findMany({
+      where: {
+        activo: true,
+        id: { not: usuarioId },
+      },
+      select: {
+        id: true,
+        nombre: true,
+        apellido: true,
+      },
+      orderBy: [
+        { apellido: 'asc' },
+        { nombre: 'asc' },
+        { id: 'asc' },
+      ],
+    });
+  }
+
+  async listarConversacionesInternas(usuarioId) {
+    return prisma.chatConversation.findMany({
+      where: {
+        tipo: {
+          in: ['INTERNO_PRIVADO', 'INTERNO_GRUPAL'],
+        },
+        participants: {
+          some: {
+            userId: usuarioId,
+            leftAt: null,
+            user: { activo: true },
+          },
+        },
+      },
+      select: {
+        id: true,
+        tipo: true,
+        estado: true,
+        nombre: true,
+        createdAt: true,
+        updatedAt: true,
+        participants: {
+          where: {
+            leftAt: null,
+            user: { activo: true },
+          },
+          select: {
+            id: true,
+            userId: true,
+            rol: true,
+            user: {
+              select: {
+                id: true,
+                nombre: true,
+                apellido: true,
+              },
+            },
+          },
+          orderBy: { id: 'asc' },
+        },
+      },
+      orderBy: [
+        { createdAt: 'desc' },
+        { id: 'desc' },
+      ],
+    });
+  }
+
   async buscarEmpleadoActivo(id) {
     return prisma.user.findFirst({ where: { id, activo: true }, select: selectUser });
   }

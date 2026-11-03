@@ -1,6 +1,32 @@
 const chatService = require('../services/chat.service');
 
 class ChatController {
+  async listarEmpleadosDisponibles(req, res, next) {
+    try {
+      const employees = await chatService.listarEmpleadosDisponibles(req.user);
+
+      return res.status(200).json({
+        success: true,
+        data: { employees },
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
+  async listarConversacionesInternas(req, res, next) {
+    try {
+      const conversations = await chatService.listarConversacionesInternas(req.user);
+
+      return res.status(200).json({
+        success: true,
+        data: { conversations },
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   async crearPrivada(req, res, next) {
     try {
       const resultado = await chatService.crearORecuperarPrivada(req.body, req.user);

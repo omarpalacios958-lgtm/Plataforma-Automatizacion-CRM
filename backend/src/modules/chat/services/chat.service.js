@@ -8,6 +8,38 @@ function httpError(status, message) {
 }
 
 class ChatService {
+  async listarEmpleadosDisponibles(usuarioAutenticado) {
+    const usuarioId = usuarioAutenticado?.id;
+
+    if (!validarId(usuarioId)) {
+      throw httpError(401, 'Identidad de usuario no valida.');
+    }
+
+    const empleado = await chatRepository.buscarEmpleadoActivo(usuarioId);
+
+    if (!empleado) {
+      throw httpError(403, 'El usuario autenticado no esta activo.');
+    }
+
+    return chatRepository.listarEmpleadosDisponibles(usuarioId);
+  }
+
+  async listarConversacionesInternas(usuarioAutenticado) {
+    const usuarioId = usuarioAutenticado?.id;
+
+    if (!validarId(usuarioId)) {
+      throw httpError(401, 'Identidad de usuario no valida.');
+    }
+
+    const empleado = await chatRepository.buscarEmpleadoActivo(usuarioId);
+
+    if (!empleado) {
+      throw httpError(403, 'El usuario autenticado no esta activo.');
+    }
+
+    return chatRepository.listarConversacionesInternas(usuarioId);
+  }
+
   async crearORecuperarPrivada(datos, usuarioAutenticado) {
     const emisorId = usuarioAutenticado && usuarioAutenticado.id;
     if (!validarId(emisorId)) {
