@@ -1,8 +1,8 @@
-
 /* @vitest-environment jsdom */
 
 import { StrictMode } from "react";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -26,6 +26,8 @@ import {
   crearSesionVisitante,
   eliminarTokenVisitante,
   listarConversacionesVisitante,
+  listarMensajesVisitante,
+  obtenerConversacionVisitante,
   obtenerTokenVisitante,
 } from "../src/services/chat-visitor.service.js";
 
@@ -35,6 +37,8 @@ vi.mock("../src/services/chat-visitor.service.js", () => ({
   crearSesionVisitante: vi.fn(),
   eliminarTokenVisitante: vi.fn(),
   listarConversacionesVisitante: vi.fn(),
+  listarMensajesVisitante: vi.fn(),
+  obtenerConversacionVisitante: vi.fn(),
   obtenerTokenVisitante: vi.fn(),
 }));
 
@@ -50,8 +54,13 @@ function crearPromesaPendiente() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+
   obtenerTokenVisitante.mockReturnValue(null);
   listarConversacionesVisitante.mockResolvedValue([]);
+  listarMensajesVisitante.mockResolvedValue({
+    messages: [],
+    nextCursor: null,
+  });
 });
 
 afterEach(() => {
@@ -393,6 +402,54 @@ describe("ChatVisitor - conversaciones comerciales", () => {
   };
 
   // ... tus pruebas existentes ...
+  it("actualiza el estado de la conversación cuando el agente la resuelve", async () => {
+  const conversacionInicial = {
+    id: 45,
+    tipo: "COMERCIAL",
+    estado: "EN_CURSO",
+  };
+
+  listarConversacionesVisitante.mockResolvedValue([
+    conversacionInicial,
+  ]);
+
+  obtenerConversacionVisitante.mockResolvedValue({
+    ...conversacionInicial,
+    estado: "RESUELTA",
+  });
+
+  listarMensajesVisitante.mockResolvedValue({
+  messages: [],
+  nextCursor: null,
+});
+
+  render(<ChatVisitor />);
+
+  expect(
+    await screen.findByText("Estado: EN_CURSO"),
+  ).toBeTruthy();
+
+  await waitFor(
+    () => {
+      expect(
+        screen.getByText("Estado: RESUELTA"),
+      ).toBeTruthy();
+    },
+    { timeout: 7000 },
+  );
+
+  expect(obtenerConversacionVisitante).toHaveBeenCalledWith(45);
+
+  expect(
+  await screen.findByText(/Esta conversación ha sido resuelta/),
+).toBeTruthy();
+
+  expect(
+    screen.queryByRole("button", {
+      name: "Enviar mensaje",
+    }),
+  ).toBeNull();
+}, 10000);
 
   it("descarta la apertura si el componente se desmonta", async () => {
     const solicitud = crearPromesaPendiente();
@@ -547,6 +604,128 @@ describe("ChatVisitor - conversaciones comerciales", () => {
     expect(abrirConversacionVisitante).toHaveBeenCalledTimes(1);
     expect(listarConversacionesVisitante).toHaveBeenCalledTimes(2);
   });
+
+  it("conserva el historial cuando la conversación se resuelve", async () => {
+    listarConversacionesVisitante.mockResolvedValue([
+      {
+        id: 45,
+        tipo: "COMERCIAL",
+        estado: "RESUELTA",
+      },
+    ]);
+
+    listarMensajesVisitante.mockResolvedValue({
+      messages: [
+        {
+          id: 101,
+          conversationId: 45,
+          contenido: "Mensaje que debe permanecer visible",
+          createdAt: "2026-10-30T12:00:00.000Z",
+          deletedAt: null,
+        },
+      ],
+      nextCursor: null,
+    });
+
+    render(<ChatVisitor />);
+
+    expect(
+      await screen.findByText("Mensaje que debe permanecer visible"),
+    ).toBeTruthy();
+
+    expect(screen.getByText("Estado: RESUELTA")).toBeTruthy();
+
+    expect(
+      screen.getByText(/Esta conversación ha sido resuelta/),
+    ).toBeTruthy();
+
+    expect(
+      screen.queryByRole("button", { name: "Enviar mensaje" }),
+    ).toBeNull();
+
+    expect(obtenerConversacionVisitante).not.toHaveBeenCalled();
+  });
+
+  it("conserva la conversación y reintenta después de un fallo temporal", async () => {
+    const conversacion = {
+      id: 45,
+      tipo: "COMERCIAL",
+      estado: "EN_CURSO",
+    };
+
+    listarConversacionesVisitante.mockResolvedValue([conversacion]);
+
+    obtenerConversacionVisitante
+      .mockRejectedValueOnce(new Error("Error temporal de red"))
+      .mockResolvedValueOnce({
+        ...conversacion,
+        estado: "RESUELTA",
+      });
+
+    render(<ChatVisitor />);
+
+    expect(
+      await screen.findByText("Estado: EN_CURSO"),
+    ).toBeTruthy();
+
+    await waitFor(
+      () => {
+        expect(obtenerConversacionVisitante).toHaveBeenCalledTimes(1);
+      },
+      { timeout: 7000 },
+    );
+
+    expect(screen.getByText("Estado: EN_CURSO")).toBeTruthy();
+    expect(eliminarTokenVisitante).not.toHaveBeenCalled();
+
+    await waitFor(
+      () => {
+        expect(screen.getByText("Estado: RESUELTA")).toBeTruthy();
+      },
+      { timeout: 7000 },
+    );
+
+    expect(obtenerConversacionVisitante).toHaveBeenCalledTimes(2);
+  }, 15000);
+
+  it("descarta la respuesta del polling después de desmontarse", async () => {
+    const conversacion = {
+      id: 45,
+      tipo: "COMERCIAL",
+      estado: "EN_CURSO",
+    };
+
+    const solicitudPendiente = crearPromesaPendiente();
+
+    listarConversacionesVisitante.mockResolvedValue([conversacion]);
+    obtenerConversacionVisitante.mockReturnValue(
+      solicitudPendiente.promesa,
+    );
+
+    const { unmount } = render(<ChatVisitor />);
+
+    expect(
+      await screen.findByText("Estado: EN_CURSO"),
+    ).toBeTruthy();
+
+    await waitFor(
+      () => {
+        expect(obtenerConversacionVisitante).toHaveBeenCalledTimes(1);
+      },
+      { timeout: 7000 },
+    );
+
+    unmount();
+
+    await act(async () => {
+      solicitudPendiente.resolver({
+        ...conversacion,
+        estado: "RESUELTA",
+      });
+    });
+
+    expect(eliminarTokenVisitante).not.toHaveBeenCalled();
+  }, 10000);
 
   it("permite reintentar cuando falla la consulta", async () => {
     listarConversacionesVisitante

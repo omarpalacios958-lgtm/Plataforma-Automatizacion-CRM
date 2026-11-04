@@ -6,6 +6,7 @@ import {
   crearSesionVisitante,
   eliminarTokenVisitante,
   listarConversacionesVisitante,
+  obtenerConversacionVisitante,
   obtenerTokenVisitante,
 } from "../../services/chat-visitor.service.js";
 
@@ -13,6 +14,8 @@ import "./ChatVisitor.css";
 import ChatVisitorMessages from "./ChatVisitorMessages.jsx";
 
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const INTERVALO_ESTADO_CONVERSACION = 5000;
+
 // Se replica la validación del backend para rechazar caracteres de control.
 // eslint-disable-next-line no-control-regex
 const CONTROL_REGEX = /[\x00-\x1F\x7F]/;
@@ -60,7 +63,8 @@ function ChatVisitor() {
   const [enviando, setEnviando] = useState(false);
   const [errorFormulario, setErrorFormulario] = useState("");
   const [conversacion, setConversacion] = useState(null);
-  const [estadoConversacion, setEstadoConversacion] = useState("inactivo");
+  const [estadoConversacion, setEstadoConversacion] =
+    useState("inactivo");
   const [errorConversacion, setErrorConversacion] = useState("");
   const [intentoConversacion, setIntentoConversacion] = useState(0);
 
@@ -146,25 +150,27 @@ function ChatVisitor() {
         }
 
         setConversacion(existente);
-        setEstadoConversacion(existente ? "disponible" : "sin-conversacion");
+        setEstadoConversacion(
+          existente ? "disponible" : "sin-conversacion",
+        );
       } catch (err) {
-  if (!activo) return;
+        if (!activo) return;
 
-  if (err?.status === 401) {
-    eliminarTokenVisitante();
-    setSesion(null);
-    setConversacion(null);
-    setEstadoConversacion("inactivo");
-    setErrorConversacion("");
-    setEstado("sin-sesion");
-    return;
-  }
+        if (err?.status === 401) {
+          eliminarTokenVisitante();
+          setSesion(null);
+          setConversacion(null);
+          setEstadoConversacion("inactivo");
+          setErrorConversacion("");
+          setEstado("sin-sesion");
+          return;
+        }
 
-  setErrorConversacion(
-    "No fue posible consultar tus conversaciones. Intenta nuevamente.",
-  );
-  setEstadoConversacion("error");
-}
+        setErrorConversacion(
+          "No fue posible consultar tus conversaciones. Intenta nuevamente.",
+        );
+        setEstadoConversacion("error");
+      }
     }
 
     recuperarConversacion();
@@ -173,6 +179,83 @@ function ChatVisitor() {
       activo = false;
     };
   }, [estado, intentoConversacion]);
+
+  useEffect(() => {
+    if (
+      estado !== "autenticado" ||
+      estadoConversacion !== "disponible" ||
+      !conversacion?.id ||
+      conversacion.estado === "RESUELTA"
+    ) {
+      return;
+    }
+
+    let activo = true;
+    let consultando = false;
+
+    const conversationId = conversacion.id;
+
+    async function actualizarEstado() {
+      if (!activo || consultando) return;
+
+      consultando = true;
+
+      try {
+        const actualizada =
+          await obtenerConversacionVisitante(conversationId);
+
+        if (!activo) return;
+
+        if (
+          !actualizada ||
+          actualizada.id !== conversationId ||
+          actualizada.tipo !== "COMERCIAL"
+        ) {
+          return;
+        }
+
+        setConversacion((anterior) => {
+          if (!anterior || anterior.id !== conversationId) {
+            return anterior;
+          }
+
+          return {
+            ...anterior,
+            ...actualizada,
+          };
+        });
+      } catch (error) {
+        if (!activo) return;
+
+        // Los errores temporales no eliminan la conversación.
+        // La siguiente consulta volverá a intentarlo.
+        if (error?.status === 401) {
+          eliminarTokenVisitante();
+          setSesion(null);
+          setConversacion(null);
+          setEstadoConversacion("inactivo");
+          setEstado("sin-sesion");
+        }
+      } finally {
+        consultando = false;
+      }
+    }
+
+    const intervalo = setInterval(
+      () => void actualizarEstado(),
+      INTERVALO_ESTADO_CONVERSACION,
+    );
+
+    return () => {
+      activo = false;
+      clearInterval(intervalo);
+    };
+  }, [
+    estado,
+    estadoConversacion,
+    conversacion?.id,
+    conversacion?.estado,
+  ]);
 
   async function iniciarSesion(event) {
     event.preventDefault();
@@ -216,7 +299,10 @@ function ChatVisitor() {
   }
 
   async function iniciarConversacion() {
-    if (abriendoRef.current || estadoConversacion !== "sin-conversacion") {
+    if (
+      abriendoRef.current ||
+      estadoConversacion !== "sin-conversacion"
+    ) {
       return;
     }
 
@@ -393,7 +479,10 @@ function ChatVisitor() {
                   Estado: {conversacion.estado}
                 </p>
 
-                <ChatVisitorMessages conversationId={conversacion.id} />
+                <ChatVisitorMessages
+                  conversationId={conversacion.id}
+                  estadoConversacion={conversacion.estado}
+                />
               </div>
             )}
 

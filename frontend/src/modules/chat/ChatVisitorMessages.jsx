@@ -37,7 +37,10 @@ function unirMensajes(actuales, nuevos) {
   return [...porId.values()].sort((a, b) => a.id - b.id);
 }
 
-function ChatVisitorMessages({ conversationId }) {
+function ChatVisitorMessages({
+  conversationId,
+  estadoConversacion,
+}) {
   const [mensajes, setMensajes] = useState([]);
   const [cursor, setCursor] = useState(null);
   const [estado, setEstado] = useState("cargando");
@@ -305,10 +308,17 @@ function ChatVisitorMessages({ conversationId }) {
             </ol>
           )}
 
-          <ChatVisitorMessageForm
-            conversationId={conversationId}
-            onMensajeEnviado={agregarMensajeEnviado}
-          />
+          {estadoConversacion === "RESUELTA" ? (
+            <p role="status">
+              Esta conversación ha sido resuelta.
+              Puedes consultar el historial, pero ya no enviar mensajes.
+            </p>
+          ) : (
+            <ChatVisitorMessageForm
+              conversationId={conversationId}
+              onMensajeEnviado={agregarMensajeEnviado}
+            />
+          )}
         </>
       )}
     </section>
