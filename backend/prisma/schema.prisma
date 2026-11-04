@@ -434,21 +434,26 @@ model ChatConversation {
 
 // Participantes: empleado o visitante, nunca ambos.
 model ChatParticipant {
-  id Int @id @default(autoincrement())
-
+  id             Int              @id @default(autoincrement())
   conversationId Int
   conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
 
-  userId Int?
-  user   User? @relation(fields: [userId], references: [id], onDelete: Restrict)
-
+  userId    Int?
+  user      User?        @relation(fields: [userId], references: [id], onDelete: Restrict)
   visitorId Int?
   visitor   ChatVisitor? @relation(fields: [visitorId], references: [id], onDelete: Restrict)
 
-  rol        ChatParticipantRole @default(MIEMBRO)
-  lastReadAt DateTime?
-  leftAt     DateTime?
-  createdAt  DateTime            @default(now())
+  rol ChatParticipantRole @default(MIEMBRO)
+
+  lastReadAt        DateTime?
+  lastReadMessageId Int?
+
+  lastReadMessage ChatMessage? @relation("ChatReadMarker", fields: [conversationId, lastReadMessageId], references: [conversationId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  joinedAt DateTime @default(now())
+
+  leftAt    DateTime?
+  createdAt DateTime  @default(now())
 
   messages ChatMessage[] @relation("ChatMessageAuthor")
 
@@ -461,23 +466,21 @@ model ChatParticipant {
 
 // Mensajes persistentes de una conversación.
 model ChatMessage {
-  id Int @id @default(autoincrement())
-
+  id             Int              @id @default(autoincrement())
   conversationId Int
   conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
 
-  participantId Int
-  participant   ChatParticipant @relation("ChatMessageAuthor", fields: [conversationId, participantId], references: [conversationId, id], onDelete: Restrict)
-
-  contenido String @db.Text
-
-  // Permite evitar mensajes duplicados en reintentos.
+  participantId   Int
+  participant     ChatParticipant @relation("ChatMessageAuthor", fields: [conversationId, participantId], references: [conversationId, id], onDelete: Restrict)
+  contenido       String          @db.Text
   clientMessageId String?
+  createdAt       DateTime        @default(now())
+  editedAt        DateTime?
+  deletedAt       DateTime?
 
-  createdAt DateTime  @default(now())
-  editedAt  DateTime?
-  deletedAt DateTime?
+  readByParticipants ChatParticipant[] @relation("ChatReadMarker")
 
+  @@unique([conversationId, id])
   @@unique([participantId, clientMessageId])
   @@index([conversationId, createdAt, id])
 }

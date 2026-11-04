@@ -80,13 +80,17 @@ test('Directorio: consulta solo empleados activos y excluye al usuario', async (
   assert.equal(consulta.select.correo, undefined);
 });
 
+
 test('Bandeja: filtra conversaciones internas por membresia activa', async () => {
   let consulta;
+  let consultaParticipantes;
+  let consultaConteos;
 
   const repository = cargarRepositorio({
     chatConversation: {
       findMany: async (argumentos) => {
         consulta = argumentos;
+
         return [
           {
             id: 10,
@@ -97,11 +101,37 @@ test('Bandeja: filtra conversaciones internas por membresia activa', async () =>
         ];
       },
     },
+
+    chatParticipant: {
+      findMany: async (argumentos) => {
+        consultaParticipantes = argumentos;
+
+        return [
+          {
+            id: 1,
+            conversationId: 10,
+            createdAt: new Date('2026-11-01T10:00:00.000Z'),
+            lastReadMessageId: null,
+            lastReadAt: null,
+          },
+        ];
+      },
+    },
+
+    chatMessage: {
+      groupBy: async (argumentos) => {
+        consultaConteos = argumentos;
+        return [];
+      },
+    },
   });
 
   const resultado = await repository.listarConversacionesInternas(1);
 
   assert.equal(resultado.length, 1);
+  assert.equal(resultado[0].unreadCount, 0);
+  assert.equal(resultado[0].lastReadMessageId, null);
+  assert.equal(resultado[0].lastReadAt, null);
 
   assert.deepEqual(consulta.where, {
     tipo: {
@@ -120,6 +150,15 @@ test('Bandeja: filtra conversaciones internas por membresia activa', async () =>
     { createdAt: 'desc' },
     { id: 'desc' },
   ]);
+
+  assert.deepEqual(consultaParticipantes.where, {
+    conversationId: { in: [10] },
+    userId: 1,
+    leftAt: null,
+    user: { activo: true },
+  });
+
+  assert.deepEqual(consultaConteos.by, ['conversationId']);
 });
 
 test('Bandeja: selecciona solo datos publicos y participantes activos', async () => {

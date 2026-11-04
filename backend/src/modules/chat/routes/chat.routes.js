@@ -32,4 +32,10 @@ router.post('/conversations/:conversationId/messages', authMiddleware,
   (req, res, next) => chatController.enviarMensaje(req, res, next));
 router.get('/conversations/:conversationId/messages', authMiddleware,
   (req, res, next) => chatController.obtenerMensajes(req, res, next));
+router.patch(
+  '/conversations/:conversationId/read',
+  authMiddleware,
+  (req, res, next) => chatController.marcarComoLeido(req, res, next)
+);
+
 module.exports = router;

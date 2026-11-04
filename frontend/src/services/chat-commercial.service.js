@@ -89,6 +89,7 @@ async function listarMensajesComerciales(
   const suffix = construirQuery(query, [
     "limit",
     "cursor",
+    "afterId",
   ]);
 
   const response = await apiRequest(
@@ -123,4 +124,3 @@ export {
   listarMensajesComerciales,
   enviarMensajeComercial,
 };
-

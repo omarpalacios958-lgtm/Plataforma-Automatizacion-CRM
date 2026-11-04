@@ -290,3 +290,75 @@ test('reintenta conflictos de serializacion P2034', async () => {
   assert.equal(result.creado, true);
   assert.equal(intentos - anteriores, 2);
 });
+
+
+test('visitante consulta mensajes posteriores con afterId', async () => {
+  const result = await service.listar(
+    11,
+    '3',
+    { limit: '20', afterId: '40' }
+  );
+
+  assert.deepEqual(result, {
+    messages: [],
+    nextCursor: null,
+  });
+
+  assert.deepEqual(lastList, {
+    conversationId: 3,
+    limit: 20,
+    cursor: null,
+    afterId: 40,
+  });
+});
+
+test('visitante ajeno no consulta mensajes incrementales', async () => {
+  lastList = null;
+
+  await assert.rejects(
+    () => service.listar(
+      12,
+      '3',
+      { afterId: '40' }
+    ),
+    { status: 404 }
+  );
+
+  assert.equal(lastList, null);
+});
+
+
+test('visitante consulta mensajes posteriores con afterId', async () => {
+  const result = await service.listar(
+    11,
+    '3',
+    { limit: '20', afterId: '40' }
+  );
+
+  assert.deepEqual(result, {
+    messages: [],
+    nextCursor: null,
+  });
+
+  assert.deepEqual(lastList, {
+    conversationId: 3,
+    limit: 20,
+    cursor: null,
+    afterId: 40,
+  });
+});
+
+test('visitante ajeno no consulta mensajes incrementales', async () => {
+  lastList = null;
+
+  await assert.rejects(
+    () => service.listar(
+      12,
+      '3',
+      { afterId: '40' }
+    ),
+    { status: 404 }
+  );
+
+  assert.equal(lastList, null);
+});

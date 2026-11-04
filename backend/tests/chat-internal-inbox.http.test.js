@@ -55,6 +55,7 @@ const conversations = [
 
 let errorServicio = null;
 let ultimaLlamada = null;
+let conversacionesSimuladas = null;
 
 mockModule(jwtPath, {
   verificarToken(token) {
@@ -88,8 +89,9 @@ mockModule(servicePath, {
       throw errorServicio;
     }
 
-    return conversations;
+    return conversacionesSimuladas ?? conversations;
   },
+
 });
 
 delete require.cache[authPath];
@@ -130,6 +132,7 @@ test.before(async () => {
 test.beforeEach(() => {
   errorServicio = null;
   ultimaLlamada = null;
+  conversacionesSimuladas = null;
 });
 
 test.after(async () => {
@@ -256,4 +259,62 @@ test('HTTP 500: oculta detalles de errores internos', async () => {
     response.json.message,
     'Error interno del servidor.'
   );
+});
+
+test('HTTP 200: conserva contadores y marcadores de lectura en la bandeja', async () => {
+  const conversacionesEsperadas = [
+    {
+      id: 10,
+      tipo: 'INTERNO_GRUPAL',
+      estado: 'EN_CURSO',
+      nombre: 'Equipo de ventas',
+      participants: [
+        {
+          id: 1,
+          userId: 1,
+          rol: 'MIEMBRO',
+          user: {
+            id: 1,
+            nombre: 'Empleado',
+            apellido: 'Prueba',
+          },
+        },
+      ],
+      lastReadMessageId: 25,
+      lastReadAt: '2026-11-03T10:00:00.000Z',
+      unreadCount: 3,
+    },
+  ];
+
+  conversacionesSimuladas = conversacionesEsperadas;
+
+  const response = await request('/conversations');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.json.success, true);
+
+  assert.deepEqual(
+    response.json.data,
+    { conversations: conversacionesEsperadas }
+  );
+
+  assert.equal(
+    response.json.data.conversations[0].unreadCount,
+    3
+  );
+
+  assert.equal(
+    response.json.data.conversations[0].lastReadMessageId,
+    25
+  );
+
+  assert.equal(
+    response.json.data.conversations[0].lastReadAt,
+    '2026-11-03T10:00:00.000Z'
+  );
+
+  assert.deepEqual(ultimaLlamada, {
+    metodo: 'conversations',
+    user: { id: 1 },
+  });
 });

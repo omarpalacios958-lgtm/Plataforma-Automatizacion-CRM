@@ -13,6 +13,131 @@ const conversationInclude = {
 };
 
 class ChatRepository {
+  async marcarComoLeido({ conversationId, participantId, messageId }) {
+    const ejecutar = () => prisma.$transaction(async (tx) => {
+      const mensaje = await tx.chatMessage.findFirst({
+        where: {
+          id: messageId,
+          conversationId,
+        },
+        select: {
+          id: true,
+          createdAt: true,
+        },
+      });
+
+      if (!mensaje) {
+        return { error: 'MESSAGE_NOT_FOUND' };
+      }
+
+      const participante = await tx.chatParticipant.findFirst({
+        where: {
+          id: participantId,
+          conversationId,
+          leftAt: null,
+          user: { activo: true },
+          conversation: {
+            tipo: {
+              in: ['INTERNO_PRIVADO', 'INTERNO_GRUPAL'],
+            },
+          },
+        },
+        select: {
+          id: true,
+          conversationId: true,
+          joinedAt: true,
+          lastReadMessageId: true,
+          lastReadAt: true,
+        },
+      });
+
+      if (!participante) {
+        return { error: 'PARTICIPANT_NOT_FOUND' };
+      }
+
+      // CH-05.6.2.4: el marcador de lectura solo puede avanzar
+      // con mensajes del periodo actual de membresia.
+      if (mensaje.createdAt <= participante.joinedAt) {
+        return { error: 'MESSAGE_NOT_FOUND' };
+      }
+
+      if (
+        participante.lastReadMessageId !== null &&
+        participante.lastReadMessageId >= messageId
+      ) {
+        return {
+          conversationId: participante.conversationId,
+          lastReadMessageId: participante.lastReadMessageId,
+          lastReadAt: participante.lastReadAt,
+        };
+      }
+
+      const actualizado = await tx.chatParticipant.updateMany({
+        where: {
+          id: participantId,
+          conversationId,
+          leftAt: null,
+          user: { activo: true },
+          conversation: {
+            tipo: {
+              in: ['INTERNO_PRIVADO', 'INTERNO_GRUPAL'],
+            },
+          },
+          OR: [
+            { lastReadMessageId: null },
+            { lastReadMessageId: { lt: messageId } },
+          ],
+        },
+        data: {
+          lastReadMessageId: messageId,
+          lastReadAt: new Date(),
+        },
+      });
+
+      const estado = await tx.chatParticipant.findFirst({
+        where: {
+          id: participantId,
+          conversationId,
+          leftAt: null,
+          user: { activo: true },
+          conversation: {
+            tipo: {
+              in: ['INTERNO_PRIVADO', 'INTERNO_GRUPAL'],
+            },
+          },
+        },
+        select: {
+          conversationId: true,
+          lastReadMessageId: true,
+          lastReadAt: true,
+        },
+      });
+
+      if (!estado) {
+        return { error: 'PARTICIPANT_NOT_FOUND' };
+      }
+
+      if (actualizado.count === 0 && estado.lastReadMessageId === null) {
+        throw new Error('No se pudo actualizar el marcador de lectura.');
+      }
+
+      return estado;
+    }, {
+      isolationLevel: 'Serializable',
+    });
+
+    for (let intento = 0; intento < 3; intento++) {
+      try {
+        return await ejecutar();
+      } catch (error) {
+        if (error.code === 'P2034' && intento < 2) {
+          continue;
+        }
+
+        throw error;
+      }
+    }
+  }
   async listarEmpleadosDisponibles(usuarioId) {
     return prisma.user.findMany({
       where: {
@@ -32,8 +157,9 @@ class ChatRepository {
     });
   }
 
+
   async listarConversacionesInternas(usuarioId) {
-    return prisma.chatConversation.findMany({
+    const conversaciones = await prisma.chatConversation.findMany({
       where: {
         tipo: {
           in: ['INTERNO_PRIVADO', 'INTERNO_GRUPAL'],
@@ -77,6 +203,73 @@ class ChatRepository {
         { createdAt: 'desc' },
         { id: 'desc' },
       ],
+    });
+
+    if (conversaciones.length === 0) {
+      return [];
+    }
+
+    const ids = conversaciones.map((conversacion) => conversacion.id);
+
+    const participantesLectura = await prisma.chatParticipant.findMany({
+      where: {
+        conversationId: { in: ids },
+        userId: usuarioId,
+        leftAt: null,
+        user: { activo: true },
+      },
+      select: {
+        id: true,
+        conversationId: true,
+        joinedAt: true,
+        lastReadMessageId: true,
+        lastReadAt: true,
+      },
+    });
+
+    const marcadores = new Map(
+      participantesLectura.map((participante) => [
+        participante.conversationId,
+        participante,
+      ])
+    );
+
+    // Siempre se respeta joinedAt; si existe marcador de lectura,
+    // se aplica ademas id > lastReadMessageId.
+    const filtros = participantesLectura.map((participante) => ({
+      conversationId: participante.conversationId,
+      participantId: { not: participante.id },
+      deletedAt: null,
+      createdAt: { gt: participante.joinedAt },
+      ...(participante.lastReadMessageId !== null
+        ? { id: { gt: participante.lastReadMessageId } }
+        : {}),
+    }));
+
+    const conteos = filtros.length > 0
+      ? await prisma.chatMessage.groupBy({
+          by: ['conversationId'],
+          where: { OR: filtros },
+          _count: { _all: true },
+        })
+      : [];
+
+    const contadores = new Map(
+      conteos.map((registro) => [
+        registro.conversationId,
+        registro._count._all,
+      ])
+    );
+
+    return conversaciones.map((conversacion) => {
+      const marcador = marcadores.get(conversacion.id);
+
+      return {
+        ...conversacion,
+        lastReadMessageId: marcador?.lastReadMessageId ?? null,
+        lastReadAt: marcador?.lastReadAt ?? null,
+        unreadCount: contadores.get(conversacion.id) ?? 0,
+      };
     });
   }
 
@@ -136,7 +329,16 @@ class ChatRepository {
         if (!empleado) return { error: 'EMPLOYEE_NOT_FOUND' };
         if (miembro && !miembro.leftAt) return { error: 'ALREADY_MEMBER' };
         const result = miembro
-          ? await tx.chatParticipant.update({ where: { id: miembro.id }, data: { leftAt: null, rol: 'MIEMBRO' } })
+          ? await tx.chatParticipant.update({
+              where: { id: miembro.id },
+              data: {
+                leftAt: null,
+                joinedAt: new Date(),
+                rol: 'MIEMBRO',
+                lastReadMessageId: null,
+                lastReadAt: null,
+              },
+            })
           : await tx.chatParticipant.create({ data: { conversationId, userId: targetId, rol: 'MIEMBRO' } });
         return { participante: result };
       }
@@ -218,22 +420,40 @@ class ChatRepository {
     });
   }
 
-  async listarMensajes({ conversationId, cursor, limit }) {
+  async listarMensajes({ conversationId, cursor, afterId = null, limit }) {
+    const incremental = afterId !== null;
+
     const mensajes = await prisma.chatMessage.findMany({
-      where: { conversationId, ...(cursor ? { id: { lt: cursor } } : {}) },
-      orderBy: { id: 'desc' },
+      where: {
+        conversationId,
+        ...(incremental
+          ? { id: { gt: afterId } }
+          : cursor
+            ? { id: { lt: cursor } }
+            : {}),
+      },
+      orderBy: { id: incremental ? 'asc' : 'desc' },
       take: limit + 1,
-      select: { id: true, conversationId: true, participantId: true, contenido: true,
-        clientMessageId: true, createdAt: true, editedAt: true, deletedAt: true },
+      select: {
+        id: true,
+        conversationId: true,
+        participantId: true,
+        contenido: true,
+        clientMessageId: true,
+        createdAt: true,
+        editedAt: true,
+        deletedAt: true,
+      },
     });
+
     const hayMas = mensajes.length > limit;
     const pagina = mensajes.slice(0, limit);
+
     return {
       messages: pagina,
       nextCursor: hayMas ? pagina[pagina.length - 1].id : null,
     };
   }
-
 }
 
 module.exports = new ChatRepository();

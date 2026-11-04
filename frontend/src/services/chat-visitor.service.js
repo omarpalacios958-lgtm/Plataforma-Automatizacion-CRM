@@ -1,4 +1,4 @@
-﻿const API_BASE_URL =
+const API_BASE_URL =
   import.meta.env?.VITE_API_BASE_URL || "http://localhost:3000/api";
 const VISITOR_BASE_PATH = "/chat/visitors";
 const VISITOR_TOKEN_KEY = "crm_visitor_token";
@@ -124,6 +124,10 @@ async function listarMensajesVisitante(conversationId, query = {}) {
 
   if (query.cursor !== undefined && query.cursor !== null) {
     params.set("cursor", String(query.cursor));
+  }
+
+  if (query.afterId !== undefined && query.afterId !== null) {
+    params.set("afterId", String(query.afterId));
   }
 
   const suffix = params.toString();

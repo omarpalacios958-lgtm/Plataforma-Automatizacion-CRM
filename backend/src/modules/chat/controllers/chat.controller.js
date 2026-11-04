@@ -1,6 +1,25 @@
 const chatService = require('../services/chat.service');
 
 class ChatController {
+
+  async marcarComoLeido(req, res, next) {
+    try {
+      const resultado = await chatService.marcarComoLeido(
+        Number(req.params.conversationId),
+        req.body,
+        req.user
+      );
+
+      return res.status(200).json({
+        success: true,
+        message: 'Marcador de lectura actualizado.',
+        data: resultado,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+
   async listarEmpleadosDisponibles(req, res, next) {
     try {
       const employees = await chatService.listarEmpleadosDisponibles(req.user);

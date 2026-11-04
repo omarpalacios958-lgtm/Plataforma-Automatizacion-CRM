@@ -329,3 +329,47 @@ test('resuelve colision P2002 recuperando el mensaje', async () => {
   assert.equal(result.creado, false);
   assert.ok(state.calls.some(([operation]) => operation === 'buscarClave'));
 });
+
+test('agente autorizado consulta mensajes posteriores con afterId', async () => {
+  reset();
+
+  const result = await service.listar(
+    { id: 1 },
+    '3',
+    { limit: '20', afterId: '40' }
+  );
+
+  assert.deepEqual(result, {
+    messages: [],
+    nextCursor: null,
+  });
+
+  assert.deepEqual(state.calls, [
+    ['acceso', 1, 3],
+    ['listar', {
+      conversationId: 3,
+      limit: 20,
+      cursor: null,
+      afterId: 40,
+    }],
+  ]);
+});
+
+test('agente no autorizado no consulta mensajes incrementales', async () => {
+  reset();
+  state.participant = null;
+
+  await assert.rejects(
+    () => service.listar(
+      { id: 1 },
+      '3',
+      { afterId: '40' }
+    ),
+    { status: 404 }
+  );
+
+  assert.equal(
+    state.calls.some(([operation]) => operation === 'listar'),
+    false
+  );
+});

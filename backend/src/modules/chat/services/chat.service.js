@@ -1,5 +1,13 @@
 const chatRepository = require('../repositories/chat.repository');
-const { validarId, validarDestinatario, validarEnvio, validarPaginacion, validarGrupo, validarEmpleadoObjetivo } = require('../validations/chat.validation');
+const {
+  validarId,
+  validarDestinatario,
+  validarEnvio,
+  validarPaginacion,
+  validarGrupo,
+  validarEmpleadoObjetivo,
+  validarLectura,
+} = require('../validations/chat.validation');
 
 function httpError(status, message) {
   const error = new Error(message);
@@ -8,6 +16,30 @@ function httpError(status, message) {
 }
 
 class ChatService {
+  async marcarComoLeido(conversationId, datos, usuarioAutenticado) {
+    const participante = await this.verificarAcceso(
+      conversationId,
+      usuarioAutenticado
+    );
+
+    const messageId = validarLectura(datos);
+
+    const resultado = await chatRepository.marcarComoLeido({
+      conversationId,
+      participantId: participante.id,
+      messageId,
+    });
+
+    if (resultado.error === 'MESSAGE_NOT_FOUND') {
+      throw httpError(404, 'Mensaje no encontrado.');
+    }
+
+    if (resultado.error === 'PARTICIPANT_NOT_FOUND') {
+      throw httpError(404, 'Conversacion no encontrada.');
+    }
+
+    return resultado;
+  }
   async listarEmpleadosDisponibles(usuarioAutenticado) {
     const usuarioId = usuarioAutenticado?.id;
 

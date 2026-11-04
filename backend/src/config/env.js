@@ -12,7 +12,7 @@ dotenv.config();
 
 module.exports = {
   // Servidor
-  PORT: process.env.PORT,
+  PORT: Number(process.env.PORT || 3000),
 
   // Base de datos
   DATABASE_URL: process.env.DATABASE_URL,
