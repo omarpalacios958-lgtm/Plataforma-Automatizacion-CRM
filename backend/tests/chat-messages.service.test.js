@@ -76,15 +76,30 @@ test('Resuelve colision concurrente P2002', async () => {
 
 test('Paginacion y acceso autorizado', async () => {
   let args;
-  const restore = mock({ buscarParticipanteActivo: async () => ({ id: 5 }),
-    listarMensajes: async (params) => { args = params; return { messages: [], nextCursor: null }; } });
+  const restore = mock({
+    listarMensajesInternos: async (params) => {
+      args = params;
+      return { messages: [], nextCursor: null };
+    },
+  });
   try {
     await service.obtenerMensajes(1, { cursor: '30', limit: '10' }, user);
-    assert.deepEqual(args, { conversationId: 1, cursor: 30, limit: 10 });
+    assert.deepEqual(args, { conversationId: 1, userId: 1, cursor: 30, limit: 10 });
     await service.obtenerMensajes(1, {}, user);
-    assert.deepEqual(args, { conversationId: 1, cursor: null, limit: 20 });
+    assert.deepEqual(args, { conversationId: 1, userId: 1, cursor: null, limit: 20 });
     for (const query of [{ limit: '0' }, { limit: '51' }, { cursor: 'abc' }]) {
       await assert.rejects(service.obtenerMensajes(1, query, user), { status: 400 });
     }
+  } finally { restore(); }
+});
+
+test('Consulta interna rechaza identidades invalidas y participantes retirados', async () => {
+  const restore = mock({
+    listarMensajesInternos: async () => ({ error: 'PARTICIPANT_NOT_FOUND' }),
+  });
+  try {
+    await assert.rejects(service.obtenerMensajes(1, {}, {}), { status: 401 });
+    await assert.rejects(service.obtenerMensajes(0, {}, user), { status: 400 });
+    await assert.rejects(service.obtenerMensajes(1, {}, user), { status: 404 });
   } finally { restore(); }
 });

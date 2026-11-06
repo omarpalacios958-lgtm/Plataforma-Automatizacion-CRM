@@ -420,12 +420,56 @@ class ChatRepository {
     });
   }
 
-  async listarMensajes({ conversationId, cursor, afterId = null, limit }) {
+  // Autorizacion y lectura ocurren en la misma transaccion serializable.
+  // En grupos se respeta el periodo de membresia mas reciente.
+  async listarMensajesInternos({ conversationId, userId, cursor, afterId = null, limit }) {
+    const ejecutar = () => prisma.$transaction(async (tx) => {
+      const participante = await tx.chatParticipant.findFirst({
+        where: {
+          conversationId,
+          userId,
+          leftAt: null,
+          user: { activo: true },
+          conversation: { tipo: { in: ['INTERNO_PRIVADO', 'INTERNO_GRUPAL'] } },
+        },
+        select: {
+          joinedAt: true,
+          conversation: { select: { tipo: true } },
+        },
+      });
+
+      if (!participante) return { error: 'PARTICIPANT_NOT_FOUND' };
+
+      return this.listarMensajes({
+        conversationId,
+        cursor,
+        afterId,
+        limit,
+        joinedAt: participante.conversation.tipo === 'INTERNO_GRUPAL'
+          ? participante.joinedAt
+          : null,
+        cliente: tx,
+      });
+    }, { isolationLevel: 'Serializable' });
+
+    for (let intento = 0; intento < 3; intento++) {
+      try {
+        return await ejecutar();
+      } catch (error) {
+        if (error.code === 'P2034' && intento < 2) continue;
+        throw error;
+      }
+    }
+  }
+
+  async listarMensajes({ conversationId, cursor, afterId = null, limit,
+    joinedAt = null, cliente = prisma }) {
     const incremental = afterId !== null;
 
-    const mensajes = await prisma.chatMessage.findMany({
+    const mensajes = await cliente.chatMessage.findMany({
       where: {
         conversationId,
+        ...(joinedAt !== null ? { createdAt: { gt: joinedAt } } : {}),
         ...(incremental
           ? { id: { gt: afterId } }
           : cursor

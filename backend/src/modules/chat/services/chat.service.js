@@ -199,9 +199,24 @@ class ChatService {
   }
 
   async obtenerMensajes(conversationId, query, usuarioAutenticado) {
-    await this.verificarAcceso(conversationId, usuarioAutenticado);
+    // La consulta transaccional vuelve a comprobar la membresia activa.
+    // No se utiliza la verificacion previa como unica barrera de acceso.
+    if (!validarId(usuarioAutenticado?.id)) {
+      throw httpError(401, 'Identidad de usuario no valida.');
+    }
+    if (!validarId(conversationId)) {
+      throw httpError(400, 'ID de conversacion no valido.');
+    }
     const pagina = validarPaginacion(query);
-    return chatRepository.listarMensajes({ conversationId, ...pagina });
+    const resultado = await chatRepository.listarMensajesInternos({
+      conversationId,
+      userId: usuarioAutenticado.id,
+      ...pagina,
+    });
+    if (resultado.error === 'PARTICIPANT_NOT_FOUND') {
+      throw httpError(404, 'Conversacion no encontrada.');
+    }
+    return resultado;
   }
 
 }
