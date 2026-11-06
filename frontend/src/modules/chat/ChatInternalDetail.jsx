@@ -1,9 +1,11 @@
+
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
   enviarMensajeInterno,
   listarConversacionesInternas,
+  marcarComoLeidoInterno,
   obtenerMensajesInternos,
 } from "../../services/chat-internal.service.js";
 
@@ -93,6 +95,13 @@ function unirMensajes(actuales, nuevos) {
   return [...porId.values()].sort((a, b) => a.id - b.id);
 }
 
+function obtenerUltimoId(mensajes) {
+  return mensajes.reduce(
+    (mayor, mensaje) => Math.max(mayor, mensaje.id),
+    0,
+  );
+}
+
 function ChatInternalDetail() {
   const { conversationId: parametroId } = useParams();
   const conversationId = Number(parametroId);
@@ -117,6 +126,86 @@ function ChatInternalDetail() {
   const solicitudEnvioRef = useRef(false);
   const envioPendienteRef = useRef(null);
 
+  const lecturaRef = useRef({
+    version: 0,
+    conversationId: null,
+    confirmado: 0,
+    pendiente: 0,
+    ejecutando: false,
+  });
+
+  function solicitarLectura(idConversacion, messageId, version) {
+    if (
+      !Number.isSafeInteger(messageId) ||
+      messageId <= 0 ||
+      versionRef.current !== version
+    ) {
+      return;
+    }
+
+    const lectura = lecturaRef.current;
+
+    if (
+      lectura.version !== version ||
+      lectura.conversationId !== idConversacion
+    ) {
+      return;
+    }
+
+    lectura.pendiente = Math.max(
+      lectura.pendiente,
+      messageId,
+    );
+
+    if (
+      lectura.ejecutando ||
+      lectura.pendiente <= lectura.confirmado
+    ) {
+      return;
+    }
+
+    lectura.ejecutando = true;
+
+    async function procesarLecturas() {
+      try {
+        while (
+          versionRef.current === version &&
+          lecturaRef.current === lectura &&
+          lectura.pendiente > lectura.confirmado
+        ) {
+          const objetivo = lectura.pendiente;
+
+          try {
+            await marcarComoLeidoInterno(
+              idConversacion,
+              objetivo,
+            );
+          } catch {
+            // El error de lectura no debe bloquear el historial.
+            // Un evento posterior podrá volver a intentarlo.
+            break;
+          }
+
+          if (
+            versionRef.current !== version ||
+            lecturaRef.current !== lectura
+          ) {
+            break;
+          }
+
+          lectura.confirmado = Math.max(
+            lectura.confirmado,
+            objetivo,
+          );
+        }
+      } finally {
+        lectura.ejecutando = false;
+      }
+    }
+
+    void procesarLecturas();
+  }
+
   useEffect(() => {
     let vigente = true;
 
@@ -126,6 +215,14 @@ function ChatInternalDetail() {
     solicitudAnterioresRef.current = false;
     solicitudEnvioRef.current = false;
     envioPendienteRef.current = null;
+
+    lecturaRef.current = {
+      version,
+      conversationId,
+      confirmado: 0,
+      pendiente: 0,
+      ejecutando: false,
+    };
 
     function solicitudVigente() {
       return vigente && versionRef.current === version;
@@ -193,16 +290,15 @@ function ChatInternalDetail() {
 
         if (!solicitudVigente()) return;
 
+        const ultimoId = obtenerUltimoId(pagina.messages);
+
         setConversacion(encontrada);
         setMensajes(unirMensajes([], pagina.messages));
-        setUltimoIdInicial(
-          pagina.messages.reduce(
-            (mayor, mensaje) => Math.max(mayor, mensaje.id),
-            0,
-          ),
-        );
+        setUltimoIdInicial(ultimoId);
         setCursor(pagina.nextCursor);
         setEstado("disponible");
+
+        solicitarLectura(conversationId, ultimoId, version);
       } catch (err) {
         if (!solicitudVigente()) return;
 
@@ -383,20 +479,37 @@ function ChatInternalDetail() {
     }
   }
 
+  useInternalMessagePolling({
+    conversationId,
+    activo:
+      estado === "disponible" &&
+      conversacion?.id === conversationId,
+    initialMessageId: ultimoIdInicial,
+    onMessages: (nuevos) => {
+      if (
+        estado !== "disponible" ||
+        conversacion?.id !== conversationId
+      ) {
+        return;
+      }
 
-useInternalMessagePolling({
-  conversationId,
-  activo:
-    estado === "disponible" &&
-    conversacion?.id === conversationId,
-  initialMessageId: ultimoIdInicial,
-  onMessages: (nuevos) => {
-    setMensajes((actuales) =>
-      unirMensajes(actuales, nuevos),
-    );
-  },
-});
+      const mensajesValidos = nuevos.filter((mensaje) =>
+        validarMensaje(mensaje, conversationId),
+      );
 
+      if (mensajesValidos.length === 0) return;
+
+      setMensajes((actuales) =>
+        unirMensajes(actuales, mensajesValidos),
+      );
+
+      solicitarLectura(
+        conversationId,
+        obtenerUltimoId(mensajesValidos),
+        versionRef.current,
+      );
+    },
+  });
 
   const participantes = conversacion?.participants || [];
 

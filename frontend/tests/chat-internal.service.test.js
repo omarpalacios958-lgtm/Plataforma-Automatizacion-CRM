@@ -1,4 +1,3 @@
-
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../src/services/api.js", () => ({
@@ -10,6 +9,7 @@ import { apiRequest } from "../src/services/api.js";
 import {
   listarEmpleadosDisponibles,
   listarConversacionesInternas,
+  marcarComoLeidoInterno,
 } from "../src/services/chat-internal.service.js";
 
 afterEach(() => {
@@ -90,6 +90,62 @@ describe("CH-05.2 - Servicio de chat interno", () => {
     ).rejects.toMatchObject({
       message: "Error interno.",
       status: 500,
+    });
+  });
+
+  it("marca un mensaje interno como leído", async () => {
+    const respuesta = {
+      success: true,
+      data: {
+        conversationId: 2,
+        lastReadMessageId: 15,
+      },
+    };
+
+    apiRequest.mockResolvedValue(respuesta);
+
+    const resultado = await marcarComoLeidoInterno(2, 15);
+
+    expect(apiRequest).toHaveBeenCalledExactlyOnceWith(
+      "/chat/conversations/2/read",
+      {
+        method: "PATCH",
+        body: JSON.stringify({ messageId: 15 }),
+      },
+    );
+
+    expect(resultado).toEqual(respuesta);
+  });
+
+  it("rechaza identificadores inválidos de lectura", async () => {
+    await expect(
+      marcarComoLeidoInterno(0, 15),
+    ).rejects.toThrow();
+
+    await expect(
+      marcarComoLeidoInterno(2, 0),
+    ).rejects.toThrow();
+
+    await expect(
+      marcarComoLeidoInterno(2, "15"),
+    ).rejects.toThrow();
+
+    expect(apiRequest).not.toHaveBeenCalled();
+  });
+
+  it("propaga errores al marcar mensajes como leídos", async () => {
+    const error = Object.assign(
+      new Error("Mensaje no encontrado."),
+      { status: 404 },
+    );
+
+    apiRequest.mockRejectedValue(error);
+
+    await expect(
+      marcarComoLeidoInterno(2, 999),
+    ).rejects.toMatchObject({
+      message: "Mensaje no encontrado.",
+      status: 404,
     });
   });
 });

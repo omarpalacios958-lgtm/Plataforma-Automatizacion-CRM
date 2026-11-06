@@ -3,6 +3,7 @@
 
 import {
   afterEach,
+  beforeEach,
   describe,
   expect,
   it,
@@ -29,10 +30,12 @@ vi.mock("../src/services/chat-internal.service.js", () => ({
   listarConversacionesInternas: vi.fn(),
   obtenerMensajesInternos: vi.fn(),
   enviarMensajeInterno: vi.fn(),
+  marcarComoLeidoInterno: vi.fn(),
 }));
 
 import {
   listarConversacionesInternas,
+  marcarComoLeidoInterno,
   obtenerMensajesInternos,
 } from "../src/services/chat-internal.service.js";
 
@@ -122,6 +125,13 @@ function renderizar() {
     </MemoryRouter>,
   );
 }
+
+beforeEach(() => {
+  marcarComoLeidoInterno.mockResolvedValue({
+    success: true,
+    data: {},
+  });
+});
 
 afterEach(() => {
   cleanup();
@@ -236,4 +246,90 @@ describe("CH-05.6.1 - Integración del polling interno", () => {
       screen.queryByText("Respuesta obsoleta comercial"),
     ).toBeNull();
   }, 20000);
+});
+
+
+describe("CH-INT-09.4.2 - Lectura mediante polling real", () => {
+  it("marca como leído un mensaje recibido mediante polling sin recargar", async () => {
+    listarConversacionesInternas.mockResolvedValue({
+      conversations: conversaciones,
+    });
+
+    obtenerMensajesInternos.mockImplementation(
+      (conversationId, opciones) => {
+        if (
+          conversationId === 2 &&
+          opciones.afterId === 15
+        ) {
+          return Promise.resolve({
+            messages: [
+              mensaje(20, 2, "Mensaje recibido por polling"),
+            ],
+            nextCursor: null,
+          });
+        }
+
+        return Promise.resolve({
+          messages: [
+            mensaje(15, 2, "Mensaje inicial"),
+          ],
+          nextCursor: null,
+        });
+      },
+    );
+
+    renderizar();
+
+    // Primero se carga el historial inicial.
+    expect(
+      await screen.findByText("Mensaje inicial"),
+    ).toBeTruthy();
+
+    await waitFor(() => {
+      expect(marcarComoLeidoInterno).toHaveBeenCalledWith(
+        2,
+        15,
+      );
+    });
+
+    // Esperamos el ciclo real de polling (5 segundos).
+    await waitFor(
+      () => {
+        expect(obtenerMensajesInternos).toHaveBeenCalledWith(
+          2,
+          { limit: 20, afterId: 15 },
+        );
+      },
+      { timeout: 7000 },
+    );
+
+    // El mensaje debe aparecer sin recargar la página.
+    expect(
+      await screen.findByText(
+        "Mensaje recibido por polling",
+      ),
+    ).toBeTruthy();
+
+    // El marcador debe avanzar al nuevo mensaje.
+    await waitFor(() => {
+      expect(marcarComoLeidoInterno).toHaveBeenCalledWith(
+        2,
+        20,
+      );
+    });
+
+    expect(marcarComoLeidoInterno).toHaveBeenNthCalledWith(
+      1,
+      2,
+      15,
+    );
+
+    expect(marcarComoLeidoInterno).toHaveBeenNthCalledWith(
+      2,
+      2,
+      20,
+    );
+
+    expect(marcarComoLeidoInterno).toHaveBeenCalledTimes(2);
+  }, 12000);
 });

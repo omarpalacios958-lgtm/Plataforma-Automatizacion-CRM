@@ -150,10 +150,32 @@ async function enviarMensajeInterno(conversationId, datos) {
     },
   );
 }
+async function marcarComoLeidoInterno(conversationId, messageId) {
+  if (!esEnteroSeguro(conversationId)) {
+    throw new Error(
+      "El ID de conversación debe ser un entero positivo.",
+    );
+  }
+
+  if (!esEnteroSeguro(messageId)) {
+    throw new Error(
+      "messageId debe ser un entero positivo.",
+    );
+  }
+
+  return apiRequest(
+    `${INTERNAL_BASE_PATH}/conversations/${conversationId}/read`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ messageId }),
+    },
+  );
+}
 
 export {
   listarEmpleadosDisponibles,
   listarConversacionesInternas,
   obtenerMensajesInternos,
   enviarMensajeInterno,
+  marcarComoLeidoInterno,
 };

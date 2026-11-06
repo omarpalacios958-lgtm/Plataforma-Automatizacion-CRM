@@ -1,14 +1,17 @@
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { listarConversacionesInternas } from "../../services/chat-internal.service.js";
 import "./ChatInternalInbox.css";
-import { Link } from "react-router-dom";
 
 function nombreEmpleado(participante) {
   const nombre = [
     participante.user?.nombre,
     participante.user?.apellido,
-  ].filter(Boolean).join(" ").trim();
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
 
   return nombre || `Empleado #${participante.userId}`;
 }
@@ -107,7 +110,9 @@ function ChatInternalInbox() {
       )}
 
       {cargando ? (
-        <p role="status">Cargando conversaciones internas...</p>
+        <p role="status">
+          Cargando conversaciones internas...
+        </p>
       ) : error ? null : conversaciones.length === 0 ? (
         <p>No tienes conversaciones internas disponibles.</p>
       ) : (
@@ -115,43 +120,73 @@ function ChatInternalInbox() {
           <table className="chat-internal__table">
             <thead>
               <tr>
-                <th>Conversación</th>
-                <th>Tipo</th>
-                <th>Participantes</th>
-                <th>Estado</th>
-                <th>Actualización</th>
-                <th>Acciones</th>
+                <th scope="col">Conversación</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Participantes</th>
+                <th scope="col">No leídos</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Actualización</th>
+                <th scope="col">Acciones</th>
               </tr>
             </thead>
+
             <tbody>
-              {conversaciones.map((conversacion) => (
-                <tr key={conversacion.id}>
-                  <td>
-                    <Link to={`/chat/interno/${conversacion.id}`}>
-                      Ver mensajes
-                    </Link>
-                   </td>
-                  <td>{nombreConversacion(conversacion)}</td>
-                  <td>
-                    {conversacion.tipo === "INTERNO_PRIVADO"
-                      ? "Privada"
-                      : "Grupal"}
-                  </td>
-                  <td>
-                    {(conversacion.participants || [])
-                      .map(nombreEmpleado)
-                      .join(", ") || "Sin participantes"}
-                  </td>
-                  <td>{conversacion.estado}</td>
-                  <td>
-                    {conversacion.updatedAt
-                      ? new Date(
-                          conversacion.updatedAt,
-                        ).toLocaleString()
-                      : "Sin fecha"}
-                  </td>
-                </tr>
-              ))}
+              {conversaciones.map((conversacion) => {
+                const noLeidos =
+                  Number.isSafeInteger(conversacion.unreadCount) &&
+                  conversacion.unreadCount >= 0
+                    ? conversacion.unreadCount
+                    : 0;
+
+                return (
+                  <tr key={conversacion.id}>
+                    <td>{nombreConversacion(conversacion)}</td>
+
+                    <td>
+                      {conversacion.tipo === "INTERNO_PRIVADO"
+                        ? "Privada"
+                        : "Grupal"}
+                    </td>
+
+                    <td>
+                      {(conversacion.participants || [])
+                        .map(nombreEmpleado)
+                        .join(", ") || "Sin participantes"}
+                    </td>
+
+                    <td>
+                      <span
+                        className={
+                          noLeidos > 0
+                            ? "chat-internal__unread chat-internal__unread--pending"
+                            : "chat-internal__unread"
+                        }
+                        aria-label={`${noLeidos} mensajes no leídos`}
+                      >
+                        {noLeidos}
+                      </span>
+                    </td>
+
+                    <td>{conversacion.estado}</td>
+
+                    <td>
+                      {conversacion.updatedAt
+                        ? new Date(
+                            conversacion.updatedAt,
+                          ).toLocaleString()
+                        : "Sin fecha"}
+                    </td>
+
+                    <td>
+                      <Link
+                        to={`/chat/interno/${conversacion.id}`}
+                      >
+                        Ver mensajes
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
