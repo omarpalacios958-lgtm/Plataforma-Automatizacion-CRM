@@ -1,4 +1,3 @@
-
 'use strict';
 
 const test = require('node:test');
@@ -23,12 +22,7 @@ const originalChatRepository = require.cache[chatRepositoryPath];
 
 const state = {
   employee: { id: 1 },
-  participant: {
-    id: 20,
-    conversationId: 3,
-    userId: 1,
-    conversation: { estado: 'ASIGNADA' },
-  },
+  participant: null,
   result: null,
   error: null,
   calls: [],
@@ -56,18 +50,46 @@ function reset() {
   state.calls = [];
 }
 
+function httpError(status, message) {
+  const error = new Error(message);
+  error.status = status;
+  return error;
+}
+
+function validarEmpleado(user) {
+  if (!user || ![1, 2, 3].includes(user.id)) {
+    throw httpError(403, 'Sin permisos comerciales.');
+  }
+
+  return { id: user.id };
+}
+
 require.cache[commercialPath] = {
   id: commercialPath,
   filename: commercialPath,
   loaded: true,
   exports: {
     async autorizar(user) {
-      if (!user || user.id !== 1) {
-        const error = new Error('Sin permisos.');
-        error.status = 403;
-        throw error;
+      return validarEmpleado(user);
+    },
+
+    async obtener(user, conversationId) {
+      const employee = validarEmpleado(user);
+      state.calls.push(['obtener', employee.id, conversationId]);
+
+      if (!/^[1-9][0-9]*$/.test(String(conversationId))) {
+        throw httpError(400, 'ID de conversacion invalido.');
       }
-      return state.employee;
+
+      if (Number(conversationId) !== 3) {
+        throw httpError(404, 'Conversacion comercial no encontrada.');
+      }
+
+      return {
+        id: 3,
+        tipo: 'COMERCIAL',
+        assignedAgentId: 1,
+      };
     },
   },
 };
@@ -121,7 +143,7 @@ test.after(() => {
   }
 });
 
-test('agente autorizado consulta mensajes paginados', async () => {
+test('agente asignado consulta mensajes paginados', async () => {
   reset();
 
   const result = await service.listar(
@@ -136,18 +158,22 @@ test('agente autorizado consulta mensajes paginados', async () => {
   });
 
   assert.deepEqual(state.calls, [
-    ['acceso', 1, 3],
+    ['obtener', 1, '3'],
     ['listar', { conversationId: 3, limit: 10, cursor: 50 }],
   ]);
 });
 
-test('conversacion ajena devuelve 404', async () => {
+test('conversacion comercial inexistente devuelve 404', async () => {
   reset();
-  state.participant = null;
 
   await assert.rejects(
-    () => service.listar({ id: 1 }, '3'),
+    () => service.listar({ id: 1 }, '999'),
     { status: 404 }
+  );
+
+  assert.equal(
+    state.calls.some(([operation]) => operation === 'listar'),
+    false
   );
 });
 
@@ -164,7 +190,7 @@ test('rechaza identidad e ID invalidos', async () => {
   reset();
 
   await assert.rejects(
-    () => service.listar({ id: 2 }, '3'),
+    () => service.listar({ id: 99 }, '3'),
     { status: 403 }
   );
 
@@ -330,7 +356,7 @@ test('resuelve colision P2002 recuperando el mensaje', async () => {
   assert.ok(state.calls.some(([operation]) => operation === 'buscarClave'));
 });
 
-test('agente autorizado consulta mensajes posteriores con afterId', async () => {
+test('agente asignado consulta mensajes posteriores con afterId', async () => {
   reset();
 
   const result = await service.listar(
@@ -345,7 +371,7 @@ test('agente autorizado consulta mensajes posteriores con afterId', async () => 
   });
 
   assert.deepEqual(state.calls, [
-    ['acceso', 1, 3],
+    ['obtener', 1, '3'],
     ['listar', {
       conversationId: 3,
       limit: 20,
@@ -355,14 +381,13 @@ test('agente autorizado consulta mensajes posteriores con afterId', async () => 
   ]);
 });
 
-test('agente no autorizado no consulta mensajes incrementales', async () => {
+test('conversacion inexistente no permite lectura incremental', async () => {
   reset();
-  state.participant = null;
 
   await assert.rejects(
     () => service.listar(
       { id: 1 },
-      '3',
+      '999',
       { afterId: '40' }
     ),
     { status: 404 }
@@ -371,5 +396,103 @@ test('agente no autorizado no consulta mensajes incrementales', async () => {
   assert.equal(
     state.calls.some(([operation]) => operation === 'listar'),
     false
+  );
+});
+
+test('vendedor no asignado puede leer mensajes comerciales', async () => {
+  reset();
+
+  const result = await service.listar(
+    { id: 2 },
+    '3',
+    { limit: '10' }
+  );
+
+  assert.deepEqual(result, {
+    messages: [],
+    nextCursor: null,
+  });
+
+  assert.deepEqual(state.calls, [
+    ['obtener', 2, '3'],
+    ['listar', {
+      conversationId: 3,
+      limit: 10,
+      cursor: null,
+    }],
+  ]);
+});
+
+test('administrador no asignado puede leer mensajes comerciales', async () => {
+  reset();
+
+  const result = await service.listar(
+    { id: 3 },
+    '3'
+  );
+
+  assert.deepEqual(result, {
+    messages: [],
+    nextCursor: null,
+  });
+
+  assert.equal(state.calls[0][0], 'obtener');
+  assert.equal(state.calls[0][1], 3);
+  assert.equal(state.calls[1][0], 'listar');
+});
+
+test('vendedor no asignado puede consultar mensajes incrementales', async () => {
+  reset();
+
+  const result = await service.listar(
+    { id: 2 },
+    '3',
+    { afterId: '40' }
+  );
+
+  assert.deepEqual(result, {
+    messages: [],
+    nextCursor: null,
+  });
+
+  assert.deepEqual(state.calls, [
+    ['obtener', 2, '3'],
+    ['listar', {
+      conversationId: 3,
+      limit: 20,
+      cursor: null,
+      afterId: 40,
+    }],
+  ]);
+});
+
+test('usuario sin permisos comerciales no puede leer mensajes', async () => {
+  reset();
+
+  await assert.rejects(
+    () => service.listar({ id: 99 }, '3'),
+    { status: 403 }
+  );
+
+  assert.equal(
+    state.calls.some(([operation]) => operation === 'listar'),
+    false
+  );
+});
+
+test('empleado no asignado no puede enviar mensajes', async () => {
+  reset();
+  state.result = { error: 'NOT_FOUND' };
+
+  await assert.rejects(
+    () => service.enviar(
+      { id: 2 },
+      '3',
+      {
+        contenido: 'No autorizado',
+        clientMessageId: 'agente-000002',
+      }
+    ),
+    { status: 404 }
   );
 });

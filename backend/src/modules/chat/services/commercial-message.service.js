@@ -150,7 +150,7 @@ class CommercialMessageService {
   }
 
   async listar(user, conversationId, query = {}) {
-    await this.verificarAcceso(user, conversationId);
+    await commercialService.obtener(user, conversationId);
 
     const pagination = validarPaginacion(query);
 
