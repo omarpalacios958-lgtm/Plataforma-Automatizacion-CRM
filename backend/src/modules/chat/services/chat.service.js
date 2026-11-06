@@ -181,6 +181,9 @@ class ChatService {
       const mensaje = await chatRepository.crearMensaje({
         conversationId, participantId: participante.id, contenido, clientMessageId,
       });
+      if (mensaje?.error === 'PARTICIPANT_NOT_FOUND') {
+        throw httpError(404, 'Conversacion no encontrada.');
+      }
       return { creado: true, mensaje };
     } catch (error) {
       if (error.code === 'P2002') {

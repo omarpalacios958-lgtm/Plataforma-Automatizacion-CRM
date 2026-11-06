@@ -1,4 +1,4 @@
-const prisma = require('../../../config/database');
+﻿const prisma = require('../../../config/database');
 
 const selectUser = { id: true, nombre: true, apellido: true, activo: true };
 const conversationInclude = {
@@ -357,7 +357,12 @@ class ChatRepository {
     for (let intento = 0; intento < 3; intento++) {
       try { return await ejecutar(); }
       catch (error) {
-        if (error.code === 'P2034' && intento < 2) continue;
+        // Prisma puede exponer SQLSTATE 40001 como codigo directo o en meta.code
+        // cuando la consulta bloqueada se ejecuta mediante $queryRaw.
+        const serializacionFallida = error.code === 'P2034'
+          || error.code === '40001'
+          || (error.code === 'P2010' && error.meta?.code === '40001');
+        if (serializacionFallida && intento < 2) continue;
         if (error.code === 'P2002') return { error: 'ALREADY_MEMBER' };
         throw error;
       }
@@ -413,11 +418,44 @@ class ChatRepository {
   }
 
   async crearMensaje({ conversationId, participantId, contenido, clientMessageId }) {
-    return prisma.chatMessage.create({
-      data: { conversationId, participantId, contenido, clientMessageId },
-      select: { id: true, conversationId: true, participantId: true, contenido: true,
-        clientMessageId: true, createdAt: true, editedAt: true, deletedAt: true },
-    });
+    // Bloquear la fila de membresia antes de comprobarla e insertar el mensaje.
+    // modificarMembresia actualiza la misma fila y debe esperar este bloqueo.
+    const ejecutar = () => prisma.$transaction(async (tx) => {
+      const filas = await tx.$queryRaw`
+        SELECT id
+        FROM "ChatParticipant"
+        WHERE id = ${participantId}
+          AND "conversationId" = ${conversationId}
+        FOR UPDATE
+      `;
+      if (filas.length === 0) return { error: 'PARTICIPANT_NOT_FOUND' };
+
+      const participante = await tx.chatParticipant.findFirst({
+        where: {
+          id: participantId,
+          conversationId,
+          leftAt: null,
+          user: { activo: true },
+          conversation: { tipo: { in: ['INTERNO_PRIVADO', 'INTERNO_GRUPAL'] } },
+        },
+        select: { id: true },
+      });
+      if (!participante) return { error: 'PARTICIPANT_NOT_FOUND' };
+
+      return tx.chatMessage.create({
+        data: { conversationId, participantId, contenido, clientMessageId },
+        select: { id: true, conversationId: true, participantId: true, contenido: true,
+          clientMessageId: true, createdAt: true, editedAt: true, deletedAt: true },
+      });
+    }, { isolationLevel: 'ReadCommitted' });
+
+    for (let intento = 0; intento < 3; intento++) {
+      try { return await ejecutar(); }
+      catch (error) {
+        if (error.code === 'P2034' && intento < 2) continue;
+        throw error;
+      }
+    }
   }
 
   // Autorizacion y lectura ocurren en la misma transaccion serializable.
