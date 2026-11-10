@@ -1,7 +1,11 @@
 
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { listarConversacionesInternas } from "../../services/chat-internal.service.js";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  listarEmpleadosDisponibles,
+  listarConversacionesInternas,
+  crearConversacionPrivada,
+} from "../../services/chat-internal.service.js";
 import "./ChatInternalInbox.css";
 
 function nombreEmpleado(participante) {
@@ -34,9 +38,20 @@ function nombreConversacion(conversacion) {
 }
 
 function ChatInternalInbox() {
+  const navigate = useNavigate();
+
   const [conversaciones, setConversaciones] = useState([]);
+  const [empleados, setEmpleados] = useState([]);
+  const [destinatarioId, setDestinatarioId] = useState("");
+
   const [cargando, setCargando] = useState(true);
+  const [cargandoEmpleados, setCargandoEmpleados] = useState(true);
+  const [creando, setCreando] = useState(false);
+
   const [error, setError] = useState("");
+  const [errorEmpleados, setErrorEmpleados] = useState("");
+  const [errorCreacion, setErrorCreacion] = useState("");
+
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
@@ -83,6 +98,87 @@ function ChatInternalInbox() {
     };
   }, [version]);
 
+  useEffect(() => {
+    let vigente = true;
+
+    async function cargarEmpleados() {
+      setCargandoEmpleados(true);
+      setErrorEmpleados("");
+
+      try {
+        const resultado = await listarEmpleadosDisponibles();
+
+        if (!vigente) return;
+
+        if (
+          !resultado ||
+          !Array.isArray(resultado.employees)
+        ) {
+          throw new Error(
+            "Respuesta de empleados no válida.",
+          );
+        }
+
+        setEmpleados(resultado.employees);
+      } catch (err) {
+        if (!vigente) return;
+
+        setEmpleados([]);
+        setErrorEmpleados(
+          err.message ||
+            "No fue posible cargar los empleados.",
+        );
+      } finally {
+        if (vigente) {
+          setCargandoEmpleados(false);
+        }
+      }
+    }
+
+    cargarEmpleados();
+
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
+  async function iniciarConversacion(event) {
+    event.preventDefault();
+
+    if (creando) return;
+
+    setErrorCreacion("");
+
+    const id = Number(destinatarioId);
+
+    if (
+      !destinatarioId ||
+      !Number.isSafeInteger(id) ||
+      id <= 0 ||
+      !empleados.some((empleado) => empleado.id === id)
+    ) {
+      setErrorCreacion(
+        "Selecciona un empleado válido.",
+      );
+      return;
+    }
+
+    setCreando(true);
+
+    try {
+      const conversacion = await crearConversacionPrivada(id);
+
+      navigate(`/chat/interno/${conversacion.id}`);
+    } catch (err) {
+      setErrorCreacion(
+        err.message ||
+          "No fue posible iniciar la conversación.",
+      );
+    } finally {
+      setCreando(false);
+    }
+  }
+
   return (
     <section className="chat-internal">
       <header className="chat-internal__header">
@@ -102,6 +198,83 @@ function ChatInternalInbox() {
           Actualizar
         </button>
       </header>
+
+      <div className="chat-internal__new-conversation">
+        <h2>Nueva conversación privada</h2>
+        <p>
+          Selecciona un empleado para iniciar o continuar
+          una conversación.
+        </p>
+
+        <form onSubmit={iniciarConversacion}>
+          <label htmlFor="chat-internal-recipient">
+            Empleado destinatario
+          </label>
+
+          <select
+            id="chat-internal-recipient"
+            value={destinatarioId}
+            onChange={(event) => {
+              setDestinatarioId(event.target.value);
+              setErrorCreacion("");
+            }}
+            disabled={cargandoEmpleados || creando}
+            required
+          >
+            <option value="">
+              {cargandoEmpleados
+                ? "Cargando empleados..."
+                : "Selecciona un empleado"}
+            </option>
+
+            {empleados.map((empleado) => (
+              <option key={empleado.id} value={empleado.id}>
+                {[
+                  empleado.nombre,
+                  empleado.apellido,
+                ]
+                  .filter(Boolean)
+                  .join(" ")
+                  .trim() || `Empleado #${empleado.id}`}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="submit"
+            disabled={
+              creando ||
+              cargandoEmpleados ||
+              empleados.length === 0 ||
+              !destinatarioId
+            }
+          >
+            {creando
+              ? "Iniciando conversación..."
+              : "Iniciar conversación"}
+          </button>
+        </form>
+
+        {errorEmpleados && (
+          <p className="chat-internal__error" role="alert">
+            {errorEmpleados}
+          </p>
+        )}
+
+        {errorCreacion && (
+          <p className="chat-internal__error" role="alert">
+            {errorCreacion}
+          </p>
+        )}
+
+        {!cargandoEmpleados &&
+          !errorEmpleados &&
+          empleados.length === 0 && (
+            <p>
+              No hay otros empleados activos disponibles.
+            </p>
+          )}
+      </div>
 
       {error && (
         <p className="chat-internal__error" role="alert">

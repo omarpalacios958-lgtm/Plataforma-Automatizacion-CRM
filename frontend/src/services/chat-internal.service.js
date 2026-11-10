@@ -29,10 +29,7 @@ function validarOpcionesMensajes(conversationId, opciones) {
     throw new Error("limit debe estar entre 1 y 50.");
   }
 
-  if (
-    cursor !== undefined &&
-    !esEnteroSeguro(cursor)
-  ) {
+  if (cursor !== undefined && !esEnteroSeguro(cursor)) {
     throw new Error("cursor debe ser un entero positivo.");
   }
 
@@ -120,6 +117,33 @@ async function listarConversacionesInternas() {
   return response.data;
 }
 
+async function crearConversacionPrivada(recipientUserId) {
+  if (!esEnteroSeguro(recipientUserId)) {
+    throw new Error(
+      "Debes seleccionar un empleado válido.",
+    );
+  }
+
+  const response = await apiRequest(
+    `${INTERNAL_BASE_PATH}/private`,
+    {
+      method: "POST",
+      body: JSON.stringify({ recipientUserId }),
+    },
+  );
+
+  if (
+    !response?.data ||
+    !esEnteroSeguro(response.data.id)
+  ) {
+    throw new Error(
+      "El servidor no devolvió una conversación válida.",
+    );
+  }
+
+  return response.data;
+}
+
 async function obtenerMensajesInternos(
   conversationId,
   opciones = {},
@@ -150,6 +174,7 @@ async function enviarMensajeInterno(conversationId, datos) {
     },
   );
 }
+
 async function marcarComoLeidoInterno(conversationId, messageId) {
   if (!esEnteroSeguro(conversationId)) {
     throw new Error(
@@ -175,6 +200,7 @@ async function marcarComoLeidoInterno(conversationId, messageId) {
 export {
   listarEmpleadosDisponibles,
   listarConversacionesInternas,
+  crearConversacionPrivada,
   obtenerMensajesInternos,
   enviarMensajeInterno,
   marcarComoLeidoInterno,
