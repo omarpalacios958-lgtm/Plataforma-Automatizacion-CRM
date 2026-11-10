@@ -16,6 +16,9 @@ const controllerPath = require.resolve(
 const routesPath = require.resolve(
   '../src/modules/chat/routes/chat.routes'
 );
+const userRepositoryPath = require.resolve(
+  '../src/modules/users/repositories/user.repository'
+);
 const authPath = require.resolve(
   '../src/modules/auth/middlewares/auth.middleware'
 );
@@ -57,6 +60,13 @@ let errorServicio = null;
 let ultimaLlamada = null;
 let conversacionesSimuladas = null;
 
+mockModule(userRepositoryPath, {
+  async obtenerPorId(id) {
+    return id === 1
+      ? { id: 1, correo: 'admin@correo.com', activo: true, role: { nombre: 'Administrador' } }
+      : null;
+  },
+});
 mockModule(jwtPath, {
   verificarToken(token) {
     if (token === 'valido') {
@@ -73,7 +83,7 @@ mockModule(servicePath, {
   ...servicioOriginal,
 
   async listarEmpleadosDisponibles(user) {
-    ultimaLlamada = { metodo: 'employees', user };
+    ultimaLlamada = { metodo: 'employees', user: { id: user.id } };
 
     if (errorServicio) {
       throw errorServicio;
@@ -83,7 +93,7 @@ mockModule(servicePath, {
   },
 
   async listarConversacionesInternas(user) {
-    ultimaLlamada = { metodo: 'conversations', user };
+    ultimaLlamada = { metodo: 'conversations', user: { id: user.id } };
 
     if (errorServicio) {
       throw errorServicio;
@@ -148,6 +158,7 @@ test.after(async () => {
   for (const path of [
     routesPath,
     controllerPath,
+    userRepositoryPath,
     authPath,
     servicePath,
     jwtPath,

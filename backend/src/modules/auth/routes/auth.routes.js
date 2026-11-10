@@ -1,8 +1,11 @@
-// ============================================
-// Archivo: auth.routes.js
-// Descripción:
-// Rutas del módulo de autenticación.
-// ============================================
+
+/**
+ * Rutas del módulo de autenticación.
+ *
+ * El registro de empleados se administra
+ * exclusivamente desde /api/users,
+ * mediante autenticación JWT y rol Administrador.
+ */
 
 const express = require("express");
 
@@ -11,17 +14,17 @@ const authMiddleware = require("../middlewares/auth.middleware");
 
 const router = express.Router();
 
-// ================================
-// Rutas de autenticación
-// ================================
+// Estado del módulo (requiere autenticación).
+router.get(
+    "/",
+    authMiddleware,
+    AuthController.verificarEstado
+);
 
-// Estado del módulo
-router.get("/", authMiddleware, AuthController.verificarEstado);
-
-// Registro de usuarios
-router.post("/register", AuthController.register);
-
-// Inicio de sesión
-router.post("/login", AuthController.login);
+// Inicio de sesión.
+router.post(
+    "/login",
+    AuthController.login
+);
 
 module.exports = router;

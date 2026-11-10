@@ -102,7 +102,7 @@ class AuthService {
         // Buscar usuario por correo
         const usuario = await authRepository.buscarPorCorreo(datos.correo);
 
-        if (!usuario) {
+        if (!usuario || !usuario.activo || !usuario.role) {
             throw new Error("Correo o contraseña incorrectos.");
         }
 

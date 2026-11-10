@@ -25,6 +25,9 @@ const controllerPath = require.resolve(
 const routesPath = require.resolve(
   '../src/modules/chat/routes/commercial.routes'
 );
+const userRepositoryPath = require.resolve(
+  '../src/modules/users/repositories/user.repository'
+);
 const authPath = require.resolve(
   '../src/modules/auth/middlewares/auth.middleware'
 );
@@ -72,6 +75,17 @@ function validarEmpleado(user) {
   return { id: user.id };
 }
 
+mockModule(userRepositoryPath, {
+  async obtenerPorId(id) {
+    const usuarios = {
+      1: { id: 1, correo: 'agente@correo.com', activo: true, role: { nombre: 'Vendedor' } },
+      2: { id: 2, correo: 'vendedor@correo.com', activo: true, role: { nombre: 'Vendedor' } },
+      3: { id: 3, correo: 'admin@correo.com', activo: true, role: { nombre: 'Administrador' } },
+      99: { id: 99, correo: 'usuario@correo.com', activo: true, role: { nombre: 'Usuario' } },
+    };
+    return usuarios[id] ?? null;
+  },
+});
 mockModule(jwtPath, {
   verificarToken(token) {
     const identities = {
@@ -216,6 +230,7 @@ test.after(async () => {
     routesPath,
     controllerPath,
     messageServicePath,
+    userRepositoryPath,
     authPath,
     chatRepositoryPath,
     messageRepositoryPath,
