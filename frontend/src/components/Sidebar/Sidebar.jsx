@@ -12,7 +12,7 @@ function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar__brand">
-        CRM Empresarial
+        CRM Empresarial DEIN
       </div>
 
       <nav className="sidebar__navigation">
