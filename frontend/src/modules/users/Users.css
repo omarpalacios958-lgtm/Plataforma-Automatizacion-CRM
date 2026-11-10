@@ -57,6 +57,25 @@
   cursor: not-allowed;
 }
 
+/* Alinea solo el botón "Nuevo usuario" con el de Oportunidades. */
+.users__header > .users__button {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  background-color: var(--color-primary);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.users__header > .users__button:hover:not(:disabled) {
+  border-color: var(--color-primary-hover);
+  background-color: var(--color-primary-hover);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
 .users__button--secondary {
   border-color: var(--color-border);
   background-color: var(--color-surface);

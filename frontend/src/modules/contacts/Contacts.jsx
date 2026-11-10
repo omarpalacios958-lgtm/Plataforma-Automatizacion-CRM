@@ -224,136 +224,153 @@ function Contacts() {
       </div>
 
       {mostrarFormulario && (
-        <div className="contacts__form-container">
-          <div className="contacts__form-header">
-            <div>
-              <h3>
-                {contactoEditando
-                  ? "Editar contacto"
-                  : "Registrar contacto"}
-              </h3>
-              <p>
-                {contactoEditando
-                  ? "Modifica la información del contacto."
-                  : "Completa la información del nuevo contacto."}
-              </p>
-            </div>
-          </div>
-
-          <form className="contacts__form" onSubmit={manejarEnvio}>
-            <div className="contacts__form-row">
-              <div className="contacts__form-group">
-                <label htmlFor="nombre">Nombre *</label>
-                <input
-                  id="nombre"
-                  name="nombre"
-                  type="text"
-                  value={formulario.nombre}
-                  onChange={manejarCambio}
-                  maxLength={100}
-                  required
-                />
+        <div className="contacts__modal-overlay">
+          <div
+            className="contacts__form-container"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contact-modal-title"
+          >
+            <div className="contacts__form-header">
+              <div>
+                <h3 id="contact-modal-title">
+                  {contactoEditando
+                    ? "Editar contacto"
+                    : "Registrar contacto"}
+                </h3>
+                <p>
+                  {contactoEditando
+                    ? "Modifica la información del contacto."
+                    : "Completa la información del nuevo contacto."}
+                </p>
               </div>
 
-              <div className="contacts__form-group">
-                <label htmlFor="apellido">Apellido</label>
-                <input
-                  id="apellido"
-                  name="apellido"
-                  type="text"
-                  value={formulario.apellido}
-                  onChange={manejarCambio}
-                  maxLength={100}
-                />
-              </div>
-            </div>
-
-            <div className="contacts__form-row">
-              <div className="contacts__form-group">
-                <label htmlFor="correo">Correo</label>
-                <input
-                  id="correo"
-                  name="correo"
-                  type="email"
-                  value={formulario.correo}
-                  onChange={manejarCambio}
-                />
-              </div>
-
-              <div className="contacts__form-group">
-                <label htmlFor="telefono">Teléfono</label>
-                <input
-                  id="telefono"
-                  name="telefono"
-                  type="text"
-                  value={formulario.telefono}
-                  onChange={manejarCambio}
-                  maxLength={20}
-                />
-              </div>
-            </div>
-
-            <div className="contacts__form-row">
-              <div className="contacts__form-group">
-                <label htmlFor="puesto">Puesto</label>
-                <input
-                  id="puesto"
-                  name="puesto"
-                  type="text"
-                  value={formulario.puesto}
-                  onChange={manejarCambio}
-                  maxLength={100}
-                />
-              </div>
-
-              <div className="contacts__form-group">
-                <label htmlFor="companyId">Empresa</label>
-                <select
-                  id="companyId"
-                  name="companyId"
-                  value={formulario.companyId}
-                  onChange={manejarCambio}
-                >
-                  <option value="">Sin empresa</option>
-
-                  {empresas.map((empresa) => (
-                    <option key={empresa.id} value={empresa.id}>
-                      {empresa.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {errorFormulario && (
-              <div className="contacts__form-error">
-                <p>{errorFormulario}</p>
-              </div>
-            )}
-
-            <div className="contacts__form-actions">
               <button
                 type="button"
-                className="contacts__button contacts__button--secondary"
+                className="contacts__button contacts__button--close"
                 onClick={cerrarFormulario}
                 disabled={guardando}
+                aria-label="Cerrar formulario de contacto"
               >
-                Cancelar
-              </button>
-
-              <button
-                type="submit"
-                className="contacts__button"
-                disabled={guardando}
-              >
-                {guardando
-                  ? "Guardando..."
-                  : contactoEditando
-                    ? "Actualizar contacto"
-                    : "Guardar contacto"}
+                ×
               </button>
             </div>
-          </form>
+
+            <form className="contacts__form" onSubmit={manejarEnvio}>
+              <div className="contacts__form-row">
+                <div className="contacts__form-group">
+                  <label htmlFor="nombre">Nombre *</label>
+                  <input
+                    id="nombre"
+                    name="nombre"
+                    type="text"
+                    value={formulario.nombre}
+                    onChange={manejarCambio}
+                    maxLength={100}
+                    required
+                  />
+                </div>
+
+                <div className="contacts__form-group">
+                  <label htmlFor="apellido">Apellido</label>
+                  <input
+                    id="apellido"
+                    name="apellido"
+                    type="text"
+                    value={formulario.apellido}
+                    onChange={manejarCambio}
+                    maxLength={100}
+                  />
+                </div>
+              </div>
+
+              <div className="contacts__form-row">
+                <div className="contacts__form-group">
+                  <label htmlFor="correo">Correo</label>
+                  <input
+                    id="correo"
+                    name="correo"
+                    type="email"
+                    value={formulario.correo}
+                    onChange={manejarCambio}
+                  />
+                </div>
+
+                <div className="contacts__form-group">
+                  <label htmlFor="telefono">Teléfono</label>
+                  <input
+                    id="telefono"
+                    name="telefono"
+                    type="text"
+                    value={formulario.telefono}
+                    onChange={manejarCambio}
+                    maxLength={20}
+                  />
+                </div>
+              </div>
+
+              <div className="contacts__form-row">
+                <div className="contacts__form-group">
+                  <label htmlFor="puesto">Puesto</label>
+                  <input
+                    id="puesto"
+                    name="puesto"
+                    type="text"
+                    value={formulario.puesto}
+                    onChange={manejarCambio}
+                    maxLength={100}
+                  />
+                </div>
+
+                <div className="contacts__form-group">
+                  <label htmlFor="companyId">Empresa</label>
+                  <select
+                    id="companyId"
+                    name="companyId"
+                    value={formulario.companyId}
+                    onChange={manejarCambio}
+                  >
+                    <option value="">Sin empresa</option>
+
+                    {empresas.map((empresa) => (
+                      <option key={empresa.id} value={empresa.id}>
+                        {empresa.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {errorFormulario && (
+                <div className="contacts__form-error">
+                  <p>{errorFormulario}</p>
+                </div>
+              )}
+
+              <div className="contacts__form-actions">
+                <button
+                  type="button"
+                  className="contacts__button contacts__button--secondary"
+                  onClick={cerrarFormulario}
+                  disabled={guardando}
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="contacts__button"
+                  disabled={guardando}
+                >
+                  {guardando
+                    ? "Guardando..."
+                    : contactoEditando
+                      ? "Actualizar contacto"
+                      : "Guardar contacto"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -384,25 +401,27 @@ function Contacts() {
                   <td>{contacto.telefono || "-"}</td>
                   <td>{contacto.puesto || "-"}</td>
                   <td>
-                    <button
-                      type="button"
-                      className="contacts__button contacts__button--secondary"
-                      onClick={() => abrirEdicion(contacto)}
-                      disabled={eliminando}
-                    >
-                      Editar
-                    </button>
+                    <div className="contacts__actions">
+                      <button
+                        type="button"
+                        className="contacts__button contacts__button--secondary contacts__button--action"
+                        onClick={() => abrirEdicion(contacto)}
+                        disabled={eliminando}
+                      >
+                        Editar
+                      </button>
 
-                    <button
-                      type="button"
-                      className="contacts__button contacts__button--secondary"
-                      onClick={() => manejarEliminacion(contacto)}
-                      disabled={eliminando}
-                    >
-                      {eliminando && contactoEliminando === contacto.id
-                        ? "Eliminando..."
-                        : "Eliminar"}
-                    </button>
+                      <button
+                        type="button"
+                        className="contacts__button contacts__button--danger contacts__button--action"
+                        onClick={() => manejarEliminacion(contacto)}
+                        disabled={eliminando}
+                      >
+                        {eliminando && contactoEliminando === contacto.id
+                          ? "Eliminando..."
+                          : "Eliminar"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -59,6 +59,29 @@
   background: #152b48;
 }
 
+/* Alinea solo el botón "Nueva notificación" con el de Oportunidades. */
+.notifications-header > .notifications-button-primary {
+  padding: 10px 16px;
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  background-color: var(--color-primary);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.notifications-header > .notifications-button-primary:hover:not(:disabled) {
+  border-color: var(--color-primary-hover);
+  background-color: var(--color-primary-hover);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.notifications-header > .notifications-button-primary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 .notifications-button-secondary {
   border-color: #d1d5db;
   background: #fff;

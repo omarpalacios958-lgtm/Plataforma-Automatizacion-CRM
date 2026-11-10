@@ -57,6 +57,29 @@
   background: #1e40af;
 }
 
+/* Alinea solo el botón "Nuevo archivo" con el de Oportunidades. */
+.files-header > .files-button-primary {
+  padding: 10px 16px;
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  background-color: var(--color-primary);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.files-header > .files-button-primary:hover:not(:disabled) {
+  border-color: var(--color-primary-hover);
+  background-color: var(--color-primary-hover);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.files-header > .files-button-primary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
 .files-button-secondary {
   color: #334155;
   background: #fff;
