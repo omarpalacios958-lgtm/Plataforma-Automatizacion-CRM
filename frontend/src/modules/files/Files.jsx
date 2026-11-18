@@ -6,6 +6,10 @@ import {
   eliminarArchivo,
   descargarArchivo,
 } from "../../services/file.service";
+import { obtenerEmpresas } from "../../services/company.service";
+import { obtenerContactos } from "../../services/contact.service";
+import { obtenerLeads } from "../../services/lead.service";
+import { obtenerOportunidades } from "../../services/opportunity.service";
 import "./Files.css";
 
 const FORMULARIO_INICIAL = {
@@ -25,6 +29,61 @@ const ENTIDADES = [
     campo: "opportunityId",
   },
 ];
+
+const CONSULTAS_ENTIDAD = {
+  companies: obtenerEmpresas,
+  contacts: obtenerContactos,
+  leads: obtenerLeads,
+  opportunities: obtenerOportunidades,
+};
+
+function obtenerEtiquetaRegistro(registro, entidad) {
+  const nombreCompleto = [
+    registro.nombre,
+    registro.apellido,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  let etiqueta = "";
+
+  switch (entidad) {
+    case "companies":
+      etiqueta =
+        registro.razonSocial ||
+        registro.nombreComercial ||
+        registro.nombre;
+      break;
+
+    case "contacts":
+      etiqueta =
+        nombreCompleto ||
+        registro.nombreCompleto ||
+        registro.correo;
+      break;
+
+    case "leads":
+      etiqueta =
+        nombreCompleto ||
+        registro.nombreCompleto ||
+        registro.titulo ||
+        registro.empresa;
+      break;
+
+    case "opportunities":
+      etiqueta =
+        registro.nombre ||
+        registro.titulo ||
+        registro.descripcion;
+      break;
+
+    default:
+      etiqueta = "";
+  }
+
+  return String(etiqueta || `Registro ${registro.id}`).trim();
+}
 
 function obtenerNombreUsuario(archivo) {
   if (!archivo.user) return "—";
@@ -64,6 +123,9 @@ function Files() {
   const [error, setError] = useState("");
   const [mensajeExito, setMensajeExito] = useState("");
   const [modalAbierto, setModalAbierto] = useState(false);
+  const [registrosAsociables, setRegistrosAsociables] = useState([]);
+  const [cargandoRegistros, setCargandoRegistros] = useState(false);
+  const [errorRegistros, setErrorRegistros] = useState("");
 
   async function cargarArchivos() {
     setCargando(true);
@@ -86,6 +148,48 @@ function Files() {
 
     iniciarCarga();
   }, []);
+
+  useEffect(() => {
+    if (!modalAbierto) {
+      return;
+    }
+
+    let cancelado = false;
+
+    async function cargarRegistrosAsociables() {
+      setCargandoRegistros(true);
+      setErrorRegistros("");
+      setRegistrosAsociables([]);
+
+      try {
+        const consultar = CONSULTAS_ENTIDAD[formulario.entidad];
+        const respuesta = await consultar();
+
+        if (cancelado) return;
+
+        setRegistrosAsociables(
+          Array.isArray(respuesta) ? respuesta : []
+        );
+      } catch (err) {
+        if (cancelado) return;
+
+        setErrorRegistros(
+          err.message ||
+            "No fue posible consultar los registros."
+        );
+      } finally {
+        if (!cancelado) {
+          setCargandoRegistros(false);
+        }
+      }
+    }
+
+    cargarRegistrosAsociables();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [modalAbierto, formulario.entidad]);
 
   function abrirCrear() {
     setArchivoSeleccionado(null);
@@ -489,21 +593,50 @@ function Files() {
               </label>
 
               <label>
-                ID del registro asociado
-                <input
+                Registro asociado
+
+                <select
                   name="entidadId"
-                  type="number"
-                  min="1"
-                  step="1"
                   value={formulario.entidadId}
                   onChange={manejarCambio}
+                  disabled={cargandoRegistros || Boolean(errorRegistros)}
                   required
-                  placeholder="Introduce el ID de la entidad"
-                />
-                <small>
-                  Introduce el ID de una entidad existente y activa a la que
-                  tengas permiso de acceso.
-                </small>
+                >
+                  <option value="">
+                    {cargandoRegistros
+                      ? "Cargando registros..."
+                      : "Selecciona un registro"}
+                  </option>
+
+                  {registrosAsociables.map((registro) => (
+                    <option key={registro.id} value={String(registro.id)}>
+                      {obtenerEtiquetaRegistro(
+                        registro,
+                        formulario.entidad
+                      )}
+                    </option>
+                  ))}
+
+                  {archivoSeleccionado &&
+                    formulario.entidadId &&
+                    !registrosAsociables.some(
+                      (registro) =>
+                        String(registro.id) === formulario.entidadId
+                    ) && (
+                      <option value={formulario.entidadId} disabled>
+                        Registro actual no disponible
+                      </option>
+                    )}
+                </select>
+
+                {errorRegistros ? (
+                  <small role="alert">{errorRegistros}</small>
+                ) : (
+                  <small>
+                    Selecciona el registro al que deseas asociar
+                    el archivo.
+                  </small>
+                )}
               </label>
 
               <label>
