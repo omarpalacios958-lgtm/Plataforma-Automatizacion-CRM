@@ -13,7 +13,6 @@
 
 const { validationResult } = require("express-validator");
 const multer = require("multer");
-const fs = require("fs/promises");
 const prisma = require("../../../config/database");
 
 const validar = (req, res, next) => {
@@ -43,28 +42,30 @@ const validarIdArchivo = (req, res, next) => {
     next();
 };
 
-const limpiarArchivoSubidoSiFalla = (req, res, next) => {
-    res.on("finish", async () => {
-        if (res.statusCode < 400 || !req.file?.path) {
-            return;
-        }
-
-        try {
-            await fs.unlink(req.file.path);
-        } catch (error) {
-            if (error.code !== "ENOENT") {
-                console.error(
-                    "No se pudo eliminar el archivo físico después del error:",
-                    error.message
-                );
-            }
-        }
-    });
-
-    next();
-};
-
 const validarAsociacionArchivo = (req, res, next) => {
+      const asociacionesPorEntidad = {
+    companies: "companyId",
+    contacts: "contactId",
+    leads: "leadId",
+    opportunities: "opportunityId"
+  };
+
+  const campoEsperado = asociacionesPorEntidad[req.params.entity];
+
+  if (
+    !campoEsperado ||
+    req.body[campoEsperado] === undefined ||
+    req.body[campoEsperado] === null ||
+    req.body[campoEsperado] === ""
+  ) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "La entidad de la URL no coincide con la asociación del archivo."
+    });
+  }
+
+
     const asociaciones = [
         req.body.companyId,
         req.body.contactId,
@@ -333,7 +334,6 @@ const manejarErroresMulter = (error, req, res, next) => {
 module.exports = {
     validar,
     validarIdArchivo,
-    limpiarArchivoSubidoSiFalla,
     validarAsociacionArchivo,
     validarExistenciaEntidad,
     validarExistenciaEntidadActualizacion,
