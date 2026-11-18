@@ -4,6 +4,7 @@ import {
   subirArchivo,
   actualizarArchivo,
   eliminarArchivo,
+  descargarArchivo,
 } from "../../services/file.service";
 import "./Files.css";
 
@@ -59,6 +60,7 @@ function Files() {
   const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
+  const [descargandoId, setDescargandoId] = useState(null);
   const [error, setError] = useState("");
   const [mensajeExito, setMensajeExito] = useState("");
   const [modalAbierto, setModalAbierto] = useState(false);
@@ -247,17 +249,42 @@ function Files() {
     }
   }
 
-  function obtenerUrlDescarga(archivo) {
-    if (!archivo.ruta) return null;
+  async function manejarDescargar(archivo) {
+    setError("");
+    setMensajeExito("");
+    setDescargandoId(archivo.id);
 
-    const nombre = archivo.ruta.replace(/\\/g, "/");
-    const marcador = "/uploads/";
+    try {
+      const contenido = await descargarArchivo(archivo.id);
 
-    if (nombre.includes(marcador)) {
-      return "http://localhost:3000" + nombre.slice(nombre.indexOf(marcador));
+      const urlTemporal = URL.createObjectURL(contenido);
+
+      const nombreDescarga =
+        String(
+          archivo.nombreOriginal ||
+            `archivo-${archivo.id}.${archivo.extension || "bin"}`
+        )
+          .split(/[\\/]/)
+          .pop() || `archivo-${archivo.id}`;
+
+      const enlace = document.createElement("a");
+      enlace.href = urlTemporal;
+      enlace.download = nombreDescarga;
+
+      document.body.appendChild(enlace);
+      enlace.click();
+      enlace.remove();
+
+      setTimeout(() => {
+        URL.revokeObjectURL(urlTemporal);
+      }, 1000);
+    } catch (err) {
+      setError(
+        err.message || "No fue posible descargar el archivo."
+      );
+    } finally {
+      setDescargandoId(null);
     }
-
-    return null;
   }
 
   return (
@@ -332,7 +359,6 @@ function Files() {
               <tbody>
                 {archivos.map((archivo) => {
                   const entidad = obtenerEntidadArchivo(archivo);
-                  const url = obtenerUrlDescarga(archivo);
 
                   return (
                     <tr key={archivo.id}>
@@ -361,16 +387,16 @@ function Files() {
                       <td>{obtenerNombreUsuario(archivo)}</td>
                       <td>
                         <div className="files-actions">
-                          {url && (
-                            <a
-                              className="files-action-link"
-                              href={url}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              Abrir
-                            </a>
-                          )}
+                          <button
+                            type="button"
+                            className="files-action"
+                            onClick={() => manejarDescargar(archivo)}
+                            disabled={descargandoId === archivo.id}
+                          >
+                            {descargandoId === archivo.id
+                              ? "Descargando..."
+                              : "Descargar"}
+                          </button>
                           <button
                             type="button"
                             className="files-action"

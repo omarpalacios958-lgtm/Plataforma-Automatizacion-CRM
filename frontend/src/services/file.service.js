@@ -82,10 +82,44 @@ async function eliminarArchivo(id) {
   return response;
 }
 
+async function descargarArchivo(id) {
+  const API_BASE_URL =
+    import.meta.env?.VITE_API_BASE_URL ||
+    "http://localhost:3000/api";
+
+  const token = localStorage.getItem("crm_token");
+
+  if (!token) {
+    throw new Error("Debes iniciar sesión para descargar archivos.");
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/files/${id}/download`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const datos = await response.json().catch(() => ({}));
+
+    throw new Error(
+      datos.message ||
+        "No fue posible descargar el archivo.",
+    );
+  }
+
+  return response.blob();
+}
+
 export {
   obtenerArchivos,
   obtenerArchivoPorId,
   subirArchivo,
   actualizarArchivo,
   eliminarArchivo,
+  descargarArchivo,
 };
