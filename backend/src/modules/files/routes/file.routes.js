@@ -1,10 +1,3 @@
-// ============================================
-// Archivo: file.routes.js
-// Descripción:
-// Define las rutas del módulo Files.
-// Todas las rutas requieren autenticación
-// mediante JWT y autorización por roles.
-// ============================================
 
 const express = require("express");
 const router = express.Router();
@@ -12,87 +5,115 @@ const router = express.Router();
 const FileController = require("../controllers/file.controller");
 
 const {
-    validarCrearArchivo,
-    validarActualizarArchivo
+  validarCrearArchivo,
+  validarActualizarArchivo
 } = require("../validations/file.validation");
 
 const {
-    validarIdArchivo,
-    limpiarArchivoSubidoSiFalla,
-    validarAsociacionArchivo,
-    validarExistenciaEntidad,
-    validarExistenciaEntidadActualizacion,
-    determinarEntidadArchivo,
-    manejarErroresMulter
+  validarIdArchivo,
+  validarAsociacionArchivo,
+  validarExistenciaEntidad,
+  validarExistenciaEntidadActualizacion,
+  determinarEntidadArchivo,
+  manejarErroresMulter
 } = require("../middlewares/validation.middleware");
 
-const authMiddleware = require("../../auth/middlewares/auth.middleware");
-const roleMiddleware = require("../../auth/middlewares/role.middleware");
+const authMiddleware = require(
+  "../../auth/middlewares/auth.middleware"
+);
+
+const roleMiddleware = require(
+  "../../auth/middlewares/role.middleware"
+);
 
 const upload = require("../../../config/multer");
 
+// ============================================
+// Middleware de carga temporal
+// ============================================
+
+const procesarArchivo = (req, res, next) => {
+  upload.single("archivo")(req, res, error => {
+    if (error) {
+      return manejarErroresMulter(error, req, res, next);
+    }
+
+    next();
+  });
+};
+
+// ============================================
+// Consultar archivos
+// ============================================
+
 router.get(
-    "/",
-    authMiddleware,
-    roleMiddleware("Administrador", "Vendedor"),
-    FileController.obtenerTodos
+  "/",
+  authMiddleware,
+  roleMiddleware("Administrador", "Vendedor"),
+  FileController.obtenerTodos
 );
 
 router.get(
-    "/:id",
-    authMiddleware,
-    roleMiddleware("Administrador", "Vendedor"),
-    validarIdArchivo,
-    FileController.obtenerPorId
+  "/:id",
+  authMiddleware,
+  roleMiddleware("Administrador", "Vendedor"),
+  validarIdArchivo,
+  FileController.obtenerPorId
 );
+
+// ============================================
+// Descargar archivo privado
+// ============================================
+
+router.get(
+  "/:id/download",
+  authMiddleware,
+  roleMiddleware("Administrador", "Vendedor"),
+  validarIdArchivo,
+  FileController.descargar
+);
+
+// ============================================
+// Crear archivo
+// ============================================
 
 router.post(
-    "/:entity",
-    authMiddleware,
-    roleMiddleware("Administrador", "Vendedor"),
-    (req, res, next) => {
-        upload.single("archivo")(req, res, (error) => {
-            if (error) {
-                return manejarErroresMulter(error, req, res, next);
-            }
-
-            next();
-        });
-    },
-    limpiarArchivoSubidoSiFalla,
-    validarCrearArchivo,
-    validarAsociacionArchivo,
-    validarExistenciaEntidad,
-    FileController.crear
+  "/:entity",
+  authMiddleware,
+  roleMiddleware("Administrador", "Vendedor"),
+  procesarArchivo,
+  validarCrearArchivo,
+  validarAsociacionArchivo,
+  validarExistenciaEntidad,
+  FileController.crear
 );
+
+// ============================================
+// Actualizar archivo
+// ============================================
 
 router.put(
-    "/:id",
-    authMiddleware,
-    roleMiddleware("Administrador", "Vendedor"),
-    validarIdArchivo,
-    determinarEntidadArchivo,
-    (req, res, next) => {
-        upload.single("archivo")(req, res, (error) => {
-            if (error) {
-                return manejarErroresMulter(error, req, res, next);
-            }
-
-            next();
-        });
-    },
-    limpiarArchivoSubidoSiFalla,
-    validarActualizarArchivo,
-    validarExistenciaEntidadActualizacion,
-    FileController.actualizar
+  "/:id",
+  authMiddleware,
+  roleMiddleware("Administrador", "Vendedor"),
+  validarIdArchivo,
+  determinarEntidadArchivo,
+  procesarArchivo,
+  validarActualizarArchivo,
+  validarExistenciaEntidadActualizacion,
+  FileController.actualizar
 );
 
+// ============================================
+// Eliminación lógica
+// ============================================
+
 router.delete(
-    "/:id",
-    authMiddleware,
-    roleMiddleware("Administrador", "Vendedor"),
-    validarIdArchivo,
-    FileController.eliminar
+  "/:id",
+  authMiddleware,
+  roleMiddleware("Administrador", "Vendedor"),
+  validarIdArchivo,
+  FileController.eliminar
 );
 
 module.exports = router;
