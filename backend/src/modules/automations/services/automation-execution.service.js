@@ -214,16 +214,20 @@ class AutomationExecutionService {
                     fechaLimite
                 } = accion.configuracion;
 
-                const tarea = await taskService.crear(
-                    {
-                        titulo,
-                        descripcion,
-                        prioridad,
-                        estado,
-                        fechaLimite
-                    },
-                    { id: contexto.userId }
-                );
+const tarea = await taskService.crear(
+    {
+        titulo,
+        descripcion,
+        prioridad,
+        estado,
+        fechaLimite:
+            typeof fechaLimite === "string" &&
+            fechaLimite.trim() === ""
+                ? null
+                : fechaLimite
+    },
+    { id: contexto.userId }
+);
 
                 return {
                     taskId: tarea.id

@@ -202,3 +202,55 @@ test("Rechaza un orden de acción menor que uno", () => {
         /orden de la acción.*entero positivo/i,
     );
 });
+
+
+test("Acepta una tarea con fecha límite vacía", () => {
+    const datos = automatizacionValida();
+    datos.acciones[0].configuracion.fechaLimite = "";
+
+    assert.equal(
+        automationValidation.validarCrear(datos),
+        true
+    );
+});
+
+test("Acepta una tarea con fecha límite nula", () => {
+    const datos = automatizacionValida();
+    datos.acciones[0].configuracion.fechaLimite = null;
+
+    assert.equal(
+        automationValidation.validarCrear(datos),
+        true
+    );
+});
+
+test("Acepta una tarea sin fecha límite", () => {
+    const datos = automatizacionValida();
+
+    assert.equal(
+        automationValidation.validarCrear(datos),
+        true
+    );
+});
+
+test("Acepta una tarea con fecha límite válida", () => {
+    const datos = automatizacionValida();
+    datos.acciones[0].configuracion.fechaLimite =
+        "2026-11-20";
+
+    assert.equal(
+        automationValidation.validarCrear(datos),
+        true
+    );
+});
+
+test("Rechaza una tarea con fecha límite inválida", () => {
+    const datos = automatizacionValida();
+    datos.acciones[0].configuracion.fechaLimite =
+        "fecha-invalida";
+
+    assert.throws(
+        () => automationValidation.validarCrear(datos),
+        /fecha.*no es válida/i
+    );
+});

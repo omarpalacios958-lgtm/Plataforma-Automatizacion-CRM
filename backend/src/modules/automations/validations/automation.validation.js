@@ -212,14 +212,14 @@ class AutomationValidation {
     }
 
     if (fechaLimite !== undefined && fechaLimite !== null) {
-      if (
-        typeof fechaLimite !== "string" ||
-        fechaLimite.trim().length === 0 ||
-        Number.isNaN(Date.parse(fechaLimite))
-      ) {
-        throw new Error("La fecha límite de la tarea no es válida.");
-      }
-    }
+  if (
+    typeof fechaLimite !== "string" ||
+    (fechaLimite.trim().length > 0 &&
+      Number.isNaN(Date.parse(fechaLimite)))
+  ) {
+    throw new Error("La fecha límite de la tarea no es válida.");
+  }
+}
   }
 
   validarConfiguracionNotificacion(configuracion) {

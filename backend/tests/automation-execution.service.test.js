@@ -819,3 +819,82 @@ test(
         }
     }
 );
+
+
+test("Crea tarea automática sin fecha límite cuando está vacía", async () => {
+    const originales = {
+        obtenerActivasPorEvento:
+            automationRepository.obtenerActivasPorEvento,
+        crearEjecucion:
+            automationRepository.crearEjecucion,
+        actualizarEjecucion:
+            automationRepository.actualizarEjecucion,
+        crearTarea: taskService.crear,
+    };
+
+    let datosTarea = null;
+    const actualizaciones = [];
+
+    try {
+        automationRepository.obtenerActivasPorEvento = async () => [
+            {
+                id: 99,
+                acciones: [
+                    {
+                        id: 999,
+                        tipo: "CREAR_TAREA",
+                        configuracion: {
+                            titulo: "Tarea sin fecha límite",
+                            descripcion: "Prueba de regresión AUT-INC-01",
+                            prioridad: "Media",
+                            estado: "Pendiente",
+                            fechaLimite: "",
+                        },
+                    },
+                ],
+            },
+        ];
+
+        automationRepository.crearEjecucion = async (datos) => ({
+            id: 9999,
+            ...datos,
+        });
+
+        automationRepository.actualizarEjecucion = async (id, datos) => {
+            actualizaciones.push({ id, ...datos });
+        };
+
+        taskService.crear = async (datos) => {
+            datosTarea = datos;
+            return { id: 1234 };
+        };
+
+        const resultado = await automationExecutionService.procesarEvento({
+            evento: "LEAD_CREADO",
+            leadId: 999,
+            userId: 1,
+        });
+
+        assert.equal(datosTarea.fechaLimite, null);
+        assert.equal(datosTarea.titulo, "Tarea sin fecha límite");
+        assert.equal(resultado.total, 1);
+        assert.equal(resultado.resultados[0].estado, "Completada");
+
+        const ejecucionFinal = actualizaciones.find(
+            (item) => item.estado === "Completada"
+        );
+
+        assert.ok(ejecucionFinal);
+
+        const historial = JSON.parse(ejecucionFinal.resultado);
+        assert.equal(historial.acciones[0].resultado.taskId, 1234);
+    } finally {
+        automationRepository.obtenerActivasPorEvento =
+            originales.obtenerActivasPorEvento;
+        automationRepository.crearEjecucion =
+            originales.crearEjecucion;
+        automationRepository.actualizarEjecucion =
+            originales.actualizarEjecucion;
+        taskService.crear = originales.crearTarea;
+    }
+});
